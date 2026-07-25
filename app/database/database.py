@@ -1,4 +1,3 @@
-feature/database-models
 """
 Database engine configuration.
 
@@ -30,4 +29,3 @@ engine = create_engine(
     # Display all generated SQL queries in the console (useful for debugging)
     echo=True
 )
- main
