@@ -27,5 +27,6 @@ engine = create_engine(
     DATABASE_URL,
 
     # Display all generated SQL queries in the console (useful for debugging)
-    echo=True
+    echo=True,
+    pool_pre_ping=True
 )

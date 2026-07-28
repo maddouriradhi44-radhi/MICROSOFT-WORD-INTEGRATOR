@@ -4,14 +4,13 @@ Section model.
 This module defines the Section model, which represents
 an editable section of a collaborative Word document.
 """
-
+from __future__ import annotations
 from sqlalchemy import Boolean, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column,relationship
 
 from app.database.base import Base
 from app.enums.section_status import SectionStatus
 
-from __future__ import annotations
 
 from typing import TYPE_CHECKING
 

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """User model
 
 This module defines the User model,witch represents 
@@ -16,8 +17,8 @@ if TYPE_CHECKING:
     from app.models.section_lock import SectionLock
     from app.models.audit_log import AuditLog
 from datetime import datetime
-from sqlalchemy import DATETIME,Enum,Integer,String
-from sqlalchemy import Mapped , mapped_column,relationship 
+from sqlalchemy import DateTime,Enum,Integer,String
+from sqlalchemy.orm import Mapped , mapped_column,relationship 
 
 from app.database.base import Base
 from app.enums.user_role import UserRole
@@ -60,7 +61,7 @@ class User(Base):
      )    
 
     #User's hashed passworf(bcrypt)
-     password_hush:Mapped[str]= mapped_column(
+     password_hash:Mapped[str]= mapped_column(
           String(255),
           nullable=False  
     ) 
@@ -74,7 +75,7 @@ class User(Base):
      #Date and time when the account was created 
 
      created_at: Mapped[datetime]=mapped_column(
-          DATETIME,
+          DateTime,
           default=datetime.utcnow,
           nullable=False
      )
@@ -112,7 +113,7 @@ class User(Base):
     # Notifications received by this user
      notifications: Mapped[list[Notification]] = relationship(
         back_populates="user",
-        cascade="qll, deletre-orphan"
+        cascade="all, delete-orphan"
     )
 
     # Sections currently locked by this user
@@ -123,5 +124,5 @@ class User(Base):
     # Audit log entries created by this user
      audit_logs: Mapped[list[AuditLog]] = relationship(
         back_populates="user" ,
-        cascade="all , delete-orphan"
+        cascade="all, delete-orphan"
     )
