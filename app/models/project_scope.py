@@ -1,64 +1,98 @@
 """
 Project Scope model.
 
-This module defines the ProjectScope model, which
-assigns project modules to project members.
+This module defines the ProjectScope model,
+which represents a responsibility assigned
+to a project member.
 """
 
-from datetime import datetime
+from __future__ import annotations
 
-from sqlalchemy import DateTime, ForeignKey, Integer
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import UniqueConstraint
+from datetime import datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
+
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
+
+if TYPE_CHECKING:
+    from app.models.project import Project
+    from app.models.project_member import ProjectMember
 
 
 class ProjectScope(Base):
     """
     Represents a responsibility assigned to a project member.
 
-    Each record indicates that a project member is responsible
-    for a specific module within the project.
+    A scope defines the functional area
+    that a member is responsible for.
     """
 
-    # Database table name
     __tablename__ = "project_scopes"
 
-     # Prevent assigning the same module twice to the same project member
     __table_args__ = (
         UniqueConstraint(
             "project_member_id",
-            "module_id",
-            name="uq_project_member_module"
+            "name",
+            name="uq_project_member_scope"
         ),
     )
 
-      
+    
     # Primary Key
-    # Unique identifier
+    
+
     id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
         autoincrement=True
     )
 
-      
-    # References
-    # Project member assigned to the module
+    
+    # Scope Information
+    
+
+    # Scope name
+    name: Mapped[str] = mapped_column(
+        String(150),
+        nullable=False
+    )
+
+    # Scope description
+    description: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True
+    )
+
+    
+    # Foreign Keys
+    
+
+    # Related project
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id"),
+        nullable=False
+    )
+
+    # Assigned project member
     project_member_id: Mapped[int] = mapped_column(
         ForeignKey("project_members.id"),
         nullable=False
     )
 
-    # Assigned module
-    module_id: Mapped[int] = mapped_column(
-        ForeignKey("modules.id"),
-        nullable=False
-    )
-
+    
     # Audit Information
-    # Assignment creation date
+    
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
@@ -66,3 +100,15 @@ class ProjectScope(Base):
     )
 
     
+    # Relationships
+    
+
+    # Project containing this scope
+    project: Mapped[Project] = relationship(
+        back_populates="scopes"
+    )
+
+    # Member responsible for this scope
+    project_member: Mapped[ProjectMember] = relationship(
+        back_populates="scopes"
+    )

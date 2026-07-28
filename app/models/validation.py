@@ -2,35 +2,76 @@
 Validation model.
 
 This module defines the Validation model,
-which stores the result of validating
-a proposed version.
+which represents the validation of a document version.
 """
-from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from __future__ import annotations
+
+from datetime import datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
 from app.enums.validation_status import ValidationStatus
-from app.enums.validator_type import ValidatorType
+
+if TYPE_CHECKING:
+    from app.models.version import Version
+    from app.models.user import User
+
 
 class Validation(Base):
     """
-    Represents the validation result
-    of a version.
+    Represents the validation of a version.
+
+    A validation can be performed automatically
+    by the AI or manually by the project manager.
     """
 
-    # Database table name
     __tablename__ = "validations"
 
+    
     # Primary Key
-    d: Mapped[int] = mapped_column(
+    
+
+    id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
         autoincrement=True
     )
 
-    # References
+    
+    # Validation Information
+    
+
+    # Validation status
+    status: Mapped[ValidationStatus] = mapped_column(
+        Enum(
+            ValidationStatus,
+            name="validation_status"
+        ),
+        default=ValidationStatus.PENDING,
+        nullable=False
+    )
+
+    # Reviewer's comment
+    comment: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True
+    )
+
+    # Indicates whether the validation
+    # was performed automatically by the AI
+    validated_by_ai: Mapped[bool] = mapped_column(
+        default=False,
+        nullable=False
+    )
+
+    
+    # Foreign Keys
+    
+
     # Version being validated
     version_id: Mapped[int] = mapped_column(
         ForeignKey("versions.id"),
@@ -38,37 +79,31 @@ class Validation(Base):
         unique=True
     )
 
-    # Human reviewer (NULL if AI validates)
+    # Project manager who reviewed the version
     reviewer_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id"),
         nullable=True
     )
 
-    # Validation Information
-    #Validator type (AI or Human)
-    validator_type: Mapped[ValidatorType] = mapped_column(
-        Enum(ValidatorType, name="validator_type"),
-        nullable=False
-    )
-
-    # AI confidence score (0 - 100)
-    ai_score: Mapped[float] = mapped_column(
-        Float,
-        nullable=False
-    )
-
-    # Validation result
-    status: Mapped[ValidationStatus] = mapped_column(
-        Enum(ValidationStatus, name="validation_status"),
-        default=ValidationStatus.PENDING,
-        nullable=False
-    )
-
-    # Audit Information
-    # Validation date
-    validated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=datetime.utcnow,
-        nullable=False
-    )
     
+    # Audit Information
+    
+
+    validated_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True
+    )
+
+    
+    # Relationships
+    
+
+    # Version associated with this validation
+    version: Mapped[Version] = relationship(
+        back_populates="validation"
+    )
+
+    # User who reviewed this validation
+    reviewer: Mapped[User | None] = relationship(
+        back_populates="validations"
+    )
