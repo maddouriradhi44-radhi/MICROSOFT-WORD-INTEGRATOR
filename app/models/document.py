@@ -5,13 +5,22 @@ This module defines the Document model, which represents
 a Word document managed by the application.
 """
 
+from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column,relationship
 
 from app.database.base import Base
 from app.enums.document_status import DocumentStatus
+
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.user import User
+    from app.models.project import project
+    from app.models.section import Section
 
 
 class Document(Base):
@@ -37,15 +46,20 @@ class Document(Base):
     )
 
     # Absolute or relative path of the .docx file
-    fill_path:Mapped[str] = mapped_column(
-        Enum(DocumentStatus, name="document_status"),
-        default=DocumentStatus.IN_PROGRESS,
-        nullable=False
+    file_path: Mapped[str] = mapped_column(
+    String(500),
+    nullable=False
     )
+
+    status: Mapped[DocumentStatus] = mapped_column(
+    Enum(DocumentStatus, name="document_status"),
+    default=DocumentStatus.IN_PROGRESS,
+    nullable=False
+)
 
      # User who imported the document
     owner_id:Mapped[int] = mapped_column(
-        ForeignKey("user.id"),
+        ForeignKey("users.id"),
         nullable=False
     )
 
@@ -56,4 +70,20 @@ class Document(Base):
         nullable=False
     )
 
-    
+    # Relationships
+ # User who imported this document
+    owner: Mapped[User] = relationship(
+        back_populates="documents"
+    )
+
+    # Project containing this document
+    project: Mapped[project] = relationship(
+        back_populates="documents"
+    )
+
+    # Sections contained in this document
+    sections: Mapped[list[Section]] = relationship(
+        back_populates="document",
+        cascade="all, delete-orphan"
+    )    
+
