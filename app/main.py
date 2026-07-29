@@ -1,5 +1,5 @@
 def on_login_success(user_info):
-    from home import HomePage
+    from app.ui.home import HomePage
     home_window = HomePage(user_info=user_info, on_open_document=on_document_opened)
     home_window.resize(900, 700)
     home_window.show()
