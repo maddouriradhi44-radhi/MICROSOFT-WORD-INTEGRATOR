@@ -1,7 +1,7 @@
 """
 Authentication routes.
-This module exposes the register, login, and current-user
-endpoints.
+
+This module exposes the authentication endpoints.
 """
 
 from fastapi import APIRouter, Depends
@@ -13,58 +13,74 @@ from app.schemas.user_schema import (
     UserLogin,
     UserResponse,
 )
-from app.enums.user_role import UserRole
+from app.services.auth_service import AuthService
 
 router = APIRouter(
     prefix="/auth",
-    tags=["Authentication"]
+    tags=["Authentication"],
 )
 
 
 @router.post(
     "/register",
     response_model=UserResponse,
-    status_code=201
+    status_code=201,
 )
 def register(
     user: UserCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Register a new user.
     """
-    # STUB: db session available but not used yet —
-    # will be used once hashing + DB insert are ready
-    return UserResponse(
-        id=1,
-        first_name=user.first_name,
-        last_name=user.last_name,
-        email=user.email,
-        role=UserRole.COLLABORATOR
+
+    created_user = AuthService.register(
+        user_data=user,
+        db=db,
     )
+
+    return created_user
 
 
 @router.post("/login")
 def login(
     credentials: UserLogin,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Authenticate a user.
     """
-    # STUB: no password check, no JWT yet
-    return {
-        "message": "Login endpoint",
-        "email": credentials.email
-    }
+
+    return AuthService.login(
+        email=credentials.email,
+        password=credentials.password,
+        db=db,
+    )
+
+
+@router.get("/verify-email")
+def verify_email(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Verify a user's email.
+    """
+
+    return AuthService.verify_email(
+        token=token,
+        db=db,
+    )
 
 
 @router.get("/me")
 def get_current_user():
     """
     Return the currently authenticated user.
+
+    (Will be implemented after JWT authentication.)
     """
-    # STUB: no identity check yet
+
     return {
         "message": "Current authenticated user."
     }
