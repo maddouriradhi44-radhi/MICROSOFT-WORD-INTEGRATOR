@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.models.user import User
-    from app.models.project import project
+    from app.models.project import Project
     from app.models.section import Section
 
 
@@ -77,7 +77,7 @@ class Document(Base):
     )
 
     # Project containing this document
-    project: Mapped[project] = relationship(
+    project: Mapped[Project] = relationship(
         back_populates="documents"
     )
 
@@ -85,5 +85,10 @@ class Document(Base):
     sections: Mapped[list[Section]] = relationship(
         back_populates="document",
         cascade="all, delete-orphan"
-    )    
+    )
+
+    project_id: Mapped[int] = mapped_column(
+    ForeignKey("projects.id"),
+    nullable=False
+)
 

@@ -18,7 +18,7 @@ from app.enums.project_status import ProjectStatus
 
 if TYPE_CHECKING:
     from app.models.user import User
-    from app.models.project_member import projectMember
+    from app.models.project_member import ProjectMember
     from app.models.project_scope import ProjectScope
     from app.models.document import Document
 
@@ -97,7 +97,7 @@ class Project(Base):
     )
 
     # Members participating in this project
-    members: Mapped[list[projectMember]] = relationship(
+    members: Mapped[list[ProjectMember]] = relationship(
         back_populates="project",
         cascade="all, delete-orphan"
     )

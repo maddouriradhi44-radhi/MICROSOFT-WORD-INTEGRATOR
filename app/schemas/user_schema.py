@@ -60,3 +60,12 @@ class UserResponse(BaseModel):
     # Lets Pydantic build this schema directly from a SQLAlchemy
     # User object (user.id, user.email, ...) instead of a dict
     model_config = ConfigDict(from_attributes=True)
+
+
+class Token(BaseModel):
+    """
+    JWT token returned after authentication.
+    """
+
+    access_token: str
+    token_type: str
