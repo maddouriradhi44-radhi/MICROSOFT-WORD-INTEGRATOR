@@ -1,201 +1,281 @@
 """
 Authentication service.
 
-Contains the business logic for:
-
-- Register
-- Login
-- Email verification
+This module contains the business logic
+related to user authentication.
 """
 
-import os
 from datetime import datetime, timedelta
 
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+from fastapi import HTTPException, status
 
-from app.enums.user_role import UserRole
 from app.models.user import User
-from app.services.email_service import send_verification_email
-
-from app.utils.security import (
-    hash_password,
-    verify_password,
-    validate_password,
+from app.enums.user_role import UserRole
+from app.repositories.user_repository import UserRepository
+from app.schemas.user_schema import (
+    UserCreate,
+    UserResponse,
+    UserLogin,
+    Token,
 )
-
-from app.utils.jwt_handler import (
-    create_access_token,
-    create_refresh_token,
-    create_verification_token,
-)
+from app.utils.security import hash_password, verify_password
+from app.utils.jwt_handler import create_access_token
+from app.utils.email_token import generate_email_token
+from app.utils.email_validator import validate_email_domain
+from app.utils.token_generator import generate_token
+from app.services.email_service import EmailService
 
 
 class AuthService:
     """
-    Authentication business logic.
+    Service responsible for authentication
+    and user account management.
     """
 
     @staticmethod
-    def register(user_data, db: Session) -> User:
+    def register(
+        db: Session,
+        user_data: UserCreate
+    ) -> UserResponse:
         """
         Register a new user.
+
+        This method will:
+        - Check if the email already exists.
+        - Hash the password.
+        - Create a new user.
+        - Save it to the database.
+        - Return the created user.
         """
 
-        # Check if email already exists
-        existing_user = (
-            db.query(User)
-            .filter(User.email == user_data.email)
-            .first()
+        existing_user = UserRepository.get_by_email(
+            db,
+            user_data.email
+        )
+
+        validate_email_domain(
+            user_data.email
         )
 
         if existing_user:
-            raise ValueError("Email already registered.")
-
-        # Restrict email domain
-        allowed_domain = os.getenv("ALLOWED_EMAIL_DOMAINS")
-
-        if (
-            allowed_domain
-            and not user_data.email.lower().endswith(
-                f"@{allowed_domain.lower()}"
-            )
-        ):
-            raise ValueError(
-                f"Only {allowed_domain} email addresses are allowed."
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is already registered."
             )
 
-        # Validate password
-        if not validate_password(user_data.password):
-            raise ValueError(
-                "Password does not meet security requirements."
-            )
+        hashed_password = hash_password(user_data.password)
+        verification_token = generate_email_token()
 
-        password_hash = hash_password(user_data.password)
-
-        verification_token = create_verification_token(
-            {
-                "email": user_data.email,
-            }
-        )
-
-        verification_token_expires = (
-            datetime.utcnow() + timedelta(hours=24)
-        )
-
-        user = User(
+        new_user = User(
             first_name=user_data.first_name,
             last_name=user_data.last_name,
             email=user_data.email,
-            password_hash=password_hash,
+            password_hash=hashed_password,
             role=UserRole.COLLABORATOR,
             is_verified=False,
-            verification_token=verification_token,
-            verification_token_expires=verification_token_expires,
+            verification_token=verification_token
         )
 
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+        created_user = UserRepository.create(db, new_user)
 
-        send_verification_email(
-            email=user.email,
-            token=verification_token,
+        EmailService.send_verification_email(
+            created_user.email,
+            created_user.verification_token
         )
 
-        return user
+        # Register renvoie l'utilisateur créé, PAS un token —
+        # l'utilisateur doit ensuite se connecter via /login
+        return UserResponse.model_validate(created_user)
 
     @staticmethod
     def login(
-        email: str,
-        password: str,
         db: Session,
-    ) -> dict:
+        credentials: UserLogin
+    ) -> Token:
         """
-        Authenticate a user and generate JWT tokens.
+        Authenticate a user and return a JWT access token.
         """
 
-        user = (
-            db.query(User)
-            .filter(User.email == email)
-            .first()
+        user = UserRepository.get_by_email(
+            db,
+            credentials.email
         )
 
-        if user is None:
-            raise ValueError("Invalid email or password.")
-
-        if not verify_password(
-            password,
-            user.password_hash,
-        ):
-            raise ValueError("Invalid email or password.")
-
-        if not user.is_verified:
-            raise ValueError(
-                "Please verify your email before logging in."
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password."
             )
 
-        access_token = create_access_token(
-            {
-                "sub": str(user.id),
-                "email": user.email,
-            }
+        if not user.is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Email not verified."
+            )
+
+        if not verify_password(
+            credentials.password,
+            user.password_hash
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password."
+            )
+
+        # Login génère et renvoie le token JWT
+        token = create_access_token(
+            {"sub": user.email}
         )
 
-        refresh_token = create_refresh_token(
-            {
-                "sub": str(user.id),
-                "email": user.email,
-            }
+        return Token(
+            access_token=token,
+            token_type="bearer"
         )
 
-        return {
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "token_type": "bearer",
-            "user": user,
-        }
+    @staticmethod
+    def get_current_user(
+        db: Session,
+        email: str
+    ) -> UserResponse:
+        """
+        Return the currently authenticated user.
+        """
+
+        user = UserRepository.get_by_email(
+            db,
+            email
+        )
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        return UserResponse.model_validate(user)
 
     @staticmethod
     def verify_email(
-        token: str,
         db: Session,
+        token: str
     ) -> dict:
         """
-        Verify a user's email address.
+        Verify user account using email token.
         """
 
-        user = (
-            db.query(User)
-            .filter(User.verification_token == token)
-            .first()
+        user = UserRepository.get_by_verification_token(
+            db,
+            token
         )
 
-        if user is None:
+        if not user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid verification token.",
+                detail="Invalid verification token."
             )
-
-        if user.verification_token_expires is None:
+            
+        if (
+            user.verification_token_expires
+            and user.verification_token_expires < datetime.utcnow()
+            ):
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Verification token is invalid.",
-            )
+              status_code=status.HTTP_400_BAD_REQUEST,
+               detail="Verification token expired."
+           )
 
-        if datetime.utcnow() > user.verification_token_expires:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Verification token has expired.",
-            )
-
-        user.is_verified = True
-        user.verification_token = None
-        user.verification_token_expires = None
-
+       user.is_verified = True
+       user.verification_token = None
+       user.verification_token_expires = None
         db.commit()
         db.refresh(user)
 
         return {
             "message": "Email verified successfully."
         }
+
+    @staticmethod
+    def forgot_password(
+        db: Session,
+        email: str
+    ) -> dict:
+        """
+        Generate a password reset token and send it by email.
+        """
+
+        user = UserRepository.get_by_email(
+            db,
+            email
+        )
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        if not email.endswith("@capgemini.com"):
+            raise HTTPException(
+              status_code=400,
+              detail="Only @capgemini.com emails are allowed"
+    )
+
+        reset_token = generate_token()
+
+        user.reset_token = reset_token
+        user.reset_token_expires = (
+            datetime.utcnow() + timedelta(minutes=30)
+        )
+
+        db.commit()
+        db.refresh(user)
+
+        EmailService.send_reset_password_email(
+            user.email,
+            reset_token
+        )
+
+        return {
+            "message": "Password reset email sent."
+        }
+
+    @staticmethod
+    def reset_password(
+        db: Session,
+        token: str,
+        new_password: str
+    ) -> dict:
+        """
+        Reset password using a valid reset token.
+        """
+
+        user = db.query(User).filter(
+            User.reset_token == token
+        ).first()
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid reset token"
+            )
+
+        if (
+            user.reset_token_expires
+            and user.reset_token_expires < datetime.utcnow()
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reset token expired"
+            )
+
+        user.password_hash = hash_password(new_password)
+        user.reset_token = None
+        user.reset_token_expires = None
+
+        db.commit()
+        db.refresh(user)
+
+        return {
+            "message": "Password successfully changed"
+        }
+    
