@@ -4,7 +4,7 @@ This module defines the request and response schemas
 used by the authentication API.
 """
 
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict,field_validator
 
 from app.enums.user_role import UserRole
 
@@ -29,6 +29,15 @@ class UserCreate(BaseModel):
     # No "role" field on purpose: users can't pick their own role,
     # only a PROJECT_MANAGER can assign it later
 
+    @field_validator("email")
+    @classmethod
+    def validate_capgemini_email(cls, value):
+        if not value.endswith("@capgemini.com"):
+            raise ValueError(
+                "Only @capgemini.com emails are allowed"
+            )
+
+        return value
 
 class UserLogin(BaseModel):
     """
@@ -69,3 +78,12 @@ class Token(BaseModel):
 
     access_token: str
     token_type: str
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+

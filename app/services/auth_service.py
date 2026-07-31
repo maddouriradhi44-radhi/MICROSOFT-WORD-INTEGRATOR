@@ -5,6 +5,8 @@ This module contains the business logic
 related to user authentication.
 """
 
+from datetime import datetime, timedelta
+
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
@@ -19,6 +21,10 @@ from app.schemas.user_schema import (
 )
 from app.utils.security import hash_password, verify_password
 from app.utils.jwt_handler import create_access_token
+from app.utils.email_token import generate_email_token
+from app.utils.email_validator import validate_email_domain
+from app.utils.token_generator import generate_token
+from app.services.email_service import EmailService
 
 
 class AuthService:
@@ -48,6 +54,10 @@ class AuthService:
             user_data.email
         )
 
+        validate_email_domain(
+            user_data.email
+        )
+
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -55,16 +65,24 @@ class AuthService:
             )
 
         hashed_password = hash_password(user_data.password)
+        verification_token = generate_email_token()
 
         new_user = User(
             first_name=user_data.first_name,
             last_name=user_data.last_name,
             email=user_data.email,
             password_hash=hashed_password,
-            role=UserRole.COLLABORATOR
+            role=UserRole.COLLABORATOR,
+            is_verified=False,
+            verification_token=verification_token
         )
 
         created_user = UserRepository.create(db, new_user)
+
+        EmailService.send_verification_email(
+            created_user.email,
+            created_user.verification_token
+        )
 
         # Register renvoie l'utilisateur créé, PAS un token —
         # l'utilisateur doit ensuite se connecter via /login
@@ -88,6 +106,12 @@ class AuthService:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password."
+            )
+
+        if not user.is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Email not verified."
             )
 
         if not verify_password(
@@ -118,19 +142,131 @@ class AuthService:
         Return the currently authenticated user.
         """
 
+        user = UserRepository.get_by_email(
+            db,
+            email
+        )
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        return UserResponse.model_validate(user)
+
+    @staticmethod
+    def verify_email(
+        db: Session,
+        token: str
+    ) -> dict:
+        """
+        Verify user account using email token.
+        """
+
+        user = UserRepository.get_by_verification_token(
+            db,
+            token
+        )
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid verification token."
+            )
+
+        user.is_verified = True
+        user.verification_token = None
+
+        db.commit()
+        db.refresh(user)
+
+        return {
+            "message": "Email verified successfully."
+        }
+
+    @staticmethod
+    def forgot_password(
+        db: Session,
+        email: str
+    ) -> dict:
+        """
+        Generate a password reset token and send it by email.
+        """
 
         user = UserRepository.get_by_email(
             db,
             email
         )
 
-
         if not user:
-            raise Exception(
-                "User not found"
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
             )
 
+        if not email.endswith("@capgemini.com"):
+            raise HTTPException(
+            status_code=400,
+            detail="Only @capgemini.com emails are allowed"
+    )
 
-        return UserResponse.model_validate(
-            user
+        reset_token = generate_token()
+
+        user.reset_token = reset_token
+        user.reset_token_expires = (
+            datetime.utcnow() + timedelta(minutes=30)
         )
+
+        db.commit()
+        db.refresh(user)
+
+        EmailService.send_reset_password_email(
+            user.email,
+            reset_token
+        )
+
+        return {
+            "message": "Password reset email sent."
+        }
+
+    @staticmethod
+    def reset_password(
+        db: Session,
+        token: str,
+        new_password: str
+    ) -> dict:
+        """
+        Reset password using a valid reset token.
+        """
+
+        user = db.query(User).filter(
+            User.reset_token == token
+        ).first()
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid reset token"
+            )
+
+        if (
+            user.reset_token_expires
+            and user.reset_token_expires < datetime.utcnow()
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reset token expired"
+            )
+
+        user.password_hash = hash_password(new_password)
+        user.reset_token = None
+        user.reset_token_expires = None
+
+        db.commit()
+        db.refresh(user)
+
+        return {
+            "message": "Password successfully changed"
+        }
+    

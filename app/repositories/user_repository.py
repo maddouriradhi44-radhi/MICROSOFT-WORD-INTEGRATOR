@@ -86,6 +86,35 @@ class UserRepository:
         db.commit()
         db.refresh(user)
         return user
-    
+    @staticmethod
+    def get_by_verification_token(
+        db: Session,
+        token: str
+    ):
+        """
+     Find user by email verification token.
+         """
+
+        result = db.execute(
+            select(User).where(
+              User.verification_token == token
+             )
+     )
+
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    def get_by_reset_token(
+        db: Session,
+        token: str
+    ):
+
+        result = db.execute(
+             select(User).where(
+             User.reset_token == token
+            )
+        )
+
+        return result.scalar_one_or_none()
         
    

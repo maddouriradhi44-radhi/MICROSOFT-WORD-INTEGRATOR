@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from app.models.section_lock import SectionLock
     from app.models.audit_log import AuditLog
 from datetime import datetime
-from sqlalchemy import DateTime,Enum,Integer,String
+from sqlalchemy import DateTime,Enum,Integer,String,Boolean
 from sqlalchemy.orm import Mapped , mapped_column,relationship 
 
 from app.database.base import Base
@@ -127,4 +127,30 @@ class User(Base):
         cascade="all, delete-orphan"
     )
 
-     
+     # Email verification
+     is_verified: Mapped[bool] = mapped_column(
+         Boolean,
+         default=False,
+        nullable=False
+    )
+
+     verification_token: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True
+    )
+
+     verification_token_expires: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True
+    )
+
+# Password reset
+     reset_token: Mapped[str | None] = mapped_column(
+        String(512),
+        nullable=True
+    )
+
+     reset_token_expires: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True
+    ) 
