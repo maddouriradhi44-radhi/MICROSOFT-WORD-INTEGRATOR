@@ -184,9 +184,9 @@ class AuthService:
                detail="Verification token expired."
            )
 
-       user.is_verified = True
-       user.verification_token = None
-       user.verification_token_expires = None
+        user.is_verified = True
+        user.verification_token = None
+        user.verification_token_expires = None
         db.commit()
         db.refresh(user)
 

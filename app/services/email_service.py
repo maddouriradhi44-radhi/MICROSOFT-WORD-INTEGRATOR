@@ -53,7 +53,7 @@ class EmailService:
         print("Click this link:")
         print(link)
         print("==============================")
-=======
+
 import smtplib
 import os
 

@@ -29,8 +29,8 @@ from datetime import datetime
 from sqlalchemy import DateTime,Enum,Integer,String,Boolean
 from sqlalchemy.orm import Mapped , mapped_column,relationship 
 
-    from app.models.validation import Validation
-    from app.models.version import Version
+from app.models.validation import Validation
+from app.models.version import Version
 
 
 
@@ -168,35 +168,35 @@ class User(Base):
     )
 
     # Audit log entries created by this user
-     audit_logs: Mapped[list[AuditLog]] = relationship(
+    audit_logs: Mapped[list[AuditLog]] = relationship(
         back_populates="user" ,
         cascade="all, delete-orphan"
     )
 
      # Email verification
-     is_verified: Mapped[bool] = mapped_column(
+    is_verified: Mapped[bool] = mapped_column(
          Boolean,
          default=False,
         nullable=False
     )
 
-     verification_token: Mapped[str | None] = mapped_column(
+    verification_token: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True
     )
 
-     verification_token_expires: Mapped[datetime | None] = mapped_column(
+    verification_token_expires: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True
     )
 
 # Password reset
-     reset_token: Mapped[str | None] = mapped_column(
+    reset_token: Mapped[str | None] = mapped_column(
         String(512),
         nullable=True
     )
 
-     reset_token_expires: Mapped[datetime | None] = mapped_column(
+    reset_token_expires: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True
     ) 
