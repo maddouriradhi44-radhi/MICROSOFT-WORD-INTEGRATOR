@@ -174,10 +174,19 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid verification token."
             )
+            
+        if (
+            user.verification_token_expires
+            and user.verification_token_expires < datetime.utcnow()
+            ):
+            raise HTTPException(
+              status_code=status.HTTP_400_BAD_REQUEST,
+               detail="Verification token expired."
+           )
 
-        user.is_verified = True
-        user.verification_token = None
-
+       user.is_verified = True
+       user.verification_token = None
+       user.verification_token_expires = None
         db.commit()
         db.refresh(user)
 
@@ -207,8 +216,8 @@ class AuthService:
 
         if not email.endswith("@capgemini.com"):
             raise HTTPException(
-            status_code=400,
-            detail="Only @capgemini.com emails are allowed"
+              status_code=400,
+              detail="Only @capgemini.com emails are allowed"
     )
 
         reset_token = generate_token()

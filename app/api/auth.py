@@ -31,10 +31,9 @@ from app.schemas.user_schema import ForgotPasswordRequest
 from app.schemas.user_schema import ResetPasswordRequest
 from app.models.user import User
 
-
 router = APIRouter(
     prefix="/auth",
-    tags=["Authentication"]
+    tags=["Authentication"],
 )
 
 
@@ -50,11 +49,11 @@ oauth2_scheme = OAuth2PasswordBearer(
 @router.post(
     "/register",
     response_model=UserResponse,
-    status_code=201
+    status_code=201,
 )
 def register(
     user: UserCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
 
     return AuthService.register(
@@ -74,7 +73,7 @@ def register(
 )
 def login(
     credentials: UserLogin,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
 
     return AuthService.login(
@@ -92,36 +91,17 @@ def login(
     "/me",
     response_model=UserResponse
 )
-def me(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+def get_me(
+    current_user = Depends(get_current_user)
 ):
 
-    # Décoder le JWT
-    payload = decode_access_token(token)
-
-
-    if payload is None:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid token"
-        )
-
-
-    email = payload.get("sub")
-
-
-    if email is None:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid token data"
-        )
-
-
-    return AuthService.get_current_user(
-        db,
-        email
-    )
+    return {
+        "id": current_user.id,
+        "first_name": current_user.first_name,
+        "last_name": current_user.last_name,
+        "email": current_user.email,
+        "role": current_user.role
+    }
 
 @router.get("/verify-email/{token}")
 def verify_email(
@@ -190,17 +170,4 @@ def verify_reset_token(
 
     return {
         "message": "Token valid. You can change your password."
-    }
-
-@router.get("/me")
-def get_me(
-    current_user = Depends(get_current_user)
-):
-
-    return {
-        "id": current_user.id,
-        "first_name": current_user.first_name,
-        "last_name": current_user.last_name,
-        "email": current_user.email,
-        "role": current_user.role
     }

@@ -13,6 +13,16 @@ pwd_context = CryptContext(
     deprecated="auto"
 )
 
+def validate_password(password: str) -> bool:
+    """
+    Validate password strength.
+    """
+    return (
+        len(password) >= 8
+        and any(c.isupper() for c in password)
+        and any(c.islower() for c in password)
+        and any(c.isdigit() for c in password)
+    )
 
 def hash_password(password: str) -> str:
     """
