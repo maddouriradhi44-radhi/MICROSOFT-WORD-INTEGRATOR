@@ -6,32 +6,16 @@ and validating JSON Web Tokens (JWT).
 """
 
 from datetime import datetime, timedelta
-import os
 
-from dotenv import load_dotenv
-from jose import JWTError, jwt
+from jose import jwt, JWTError
 
-# Load environment variables
-load_dotenv()
-
-# JWT Configuration
-SECRET_KEY = os.getenv("SECRET_KEY", "change_this_secret_key")
-ALGORITHM = os.getenv("ALGORITHM", "HS256")
-
-ACCESS_TOKEN_EXPIRE_MINUTES = int(
-    os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30)
-)
-
-REFRESH_TOKEN_EXPIRE_DAYS = int(
-    os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7)
-)
-
-EMAIL_TOKEN_EXPIRE_HOURS = int(
-    os.getenv("EMAIL_TOKEN_EXPIRE_HOURS", 24)
-)
-
-RESET_TOKEN_EXPIRE_MINUTES = int(
-    os.getenv("RESET_TOKEN_EXPIRE_MINUTES", 30)
+from app.config import (
+    JWT_SECRET_KEY,
+    JWT_ALGORITHM,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    REFRESH_TOKEN_EXPIRE_DAYS,
+    EMAIL_TOKEN_EXPIRE_HOURS,
+    RESET_TOKEN_EXPIRE_MINUTES,
 )
 
 
@@ -63,8 +47,8 @@ def create_token(
 
     return jwt.encode(
         payload,
-        SECRET_KEY,
-        algorithm=ALGORITHM
+        JWT_SECRET_KEY,
+        algorithm=JWT_ALGORITHM
     )
 
 
@@ -140,10 +124,9 @@ def decode_token(
     try:
         payload = jwt.decode(
             token,
-            SECRET_KEY,
-            algorithms=[ALGORITHM]
+            JWT_SECRET_KEY,
+            algorithms=[JWT_ALGORITHM]
         )
-
         return payload
 
     except JWTError:
@@ -166,3 +149,20 @@ def validate_token_type(
     """
 
     return payload.get("type") == expected_type
+
+def decode_access_token(token: str):
+    """
+    Decode and verify a JWT access token.
+    """
+
+    try:
+        payload = jwt.decode(
+            token,
+            JWT_SECRET_KEY,
+            algorithms=[JWT_ALGORITHM],
+        )
+
+        return payload
+
+    except JWTError:
+        return None

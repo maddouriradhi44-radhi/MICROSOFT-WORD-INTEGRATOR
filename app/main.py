@@ -8,6 +8,9 @@ and registers all API routers.
 from fastapi import FastAPI
 
 from app.api import auth
+from app.routers import document_router
+
+
 
 app = FastAPI(
     title="Collaborative Document Management API",
@@ -16,7 +19,7 @@ app = FastAPI(
 )
 
 app.include_router(auth.router)
-
+app.include_router(document_router.router)
 
 @app.get("/")
 def root():
