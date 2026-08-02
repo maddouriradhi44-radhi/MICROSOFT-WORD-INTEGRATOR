@@ -1,8 +1,11 @@
 """
 JWT utilities.
 
-This module provides helper functions for creating
-and validating JSON Web Tokens (JWT).
+This module provides helper functions for:
+- Access tokens
+- Refresh tokens
+- Email verification tokens
+- Password reset tokens
 """
 
 from datetime import datetime, timedelta
@@ -19,150 +22,190 @@ from app.config import (
 )
 
 
+# ==========================================================
+# Create Token
+# ==========================================================
+
 def create_token(
     data: dict,
     expires_delta: timedelta,
-    token_type: str
+    token_type: str,
 ) -> str:
-    """
-    Create a generic JWT token.
 
-    Args:
-        data: Payload to encode.
-        expires_delta: Token lifetime.
-        token_type: access, refresh, verification or reset.
-
-    Returns:
-        Encoded JWT token.
-    """
+    print("CREATE TOKEN USING SECRET =", JWT_SECRET_KEY)
 
     payload = data.copy()
 
     payload.update(
         {
             "exp": datetime.utcnow() + expires_delta,
-            "type": token_type
+            "type": token_type,
         }
     )
 
-    return jwt.encode(
+    token = jwt.encode(
         payload,
         JWT_SECRET_KEY,
-        algorithm=JWT_ALGORITHM
+        algorithm=JWT_ALGORITHM,
     )
 
+    return token
 
-def create_access_token(data: dict) -> str:
-    """
-    Create an access token.
-    """
+
+# ==========================================================
+# Access Token
+# ==========================================================
+
+def create_access_token(
+    data: dict,
+) -> str:
 
     return create_token(
         data=data,
         expires_delta=timedelta(
             minutes=ACCESS_TOKEN_EXPIRE_MINUTES
         ),
-        token_type="access"
+        token_type="access",
     )
 
 
-def create_refresh_token(data: dict) -> str:
-    """
-    Create a refresh token.
-    """
+# ==========================================================
+# Refresh Token
+# ==========================================================
+
+def create_refresh_token(
+    data: dict,
+) -> str:
 
     return create_token(
         data=data,
         expires_delta=timedelta(
             days=REFRESH_TOKEN_EXPIRE_DAYS
         ),
-        token_type="refresh"
+        token_type="refresh",
     )
 
 
-def create_verification_token(data: dict) -> str:
-    """
-    Create an email verification token.
-    """
+# ==========================================================
+# Email Verification Token
+# ==========================================================
+
+def create_verification_token(
+    data: dict,
+) -> str:
 
     return create_token(
         data=data,
         expires_delta=timedelta(
             hours=EMAIL_TOKEN_EXPIRE_HOURS
         ),
-        token_type="verification"
+        token_type="verification",
     )
 
 
-def create_reset_token(data: dict) -> str:
-    """
-    Create a password reset token.
-    """
+# ==========================================================
+# Reset Password Token
+# ==========================================================
+
+def create_reset_token(
+    data: dict,
+) -> str:
 
     return create_token(
         data=data,
         expires_delta=timedelta(
             minutes=RESET_TOKEN_EXPIRE_MINUTES
         ),
-        token_type="reset"
+        token_type="reset",
     )
 
 
+# ==========================================================
+# Decode Token
+# ==========================================================
+
 def decode_token(
-    token: str
+    token: str,
 ) -> dict | None:
-    """
-    Decode and validate a JWT token.
 
-    Args:
-        token: JWT token.
-
-    Returns:
-        Decoded payload if valid, otherwise None.
-    """
-
-    try:
-        payload = jwt.decode(
-            token,
-            JWT_SECRET_KEY,
-            algorithms=[JWT_ALGORITHM]
-        )
-        return payload
-
-    except JWTError:
+    if not token:
         return None
 
-
-def validate_token_type(
-    payload: dict,
-    expected_type: str
-) -> bool:
-    """
-    Validate the token type.
-
-    Args:
-        payload: Decoded JWT payload.
-        expected_type: Expected token type.
-
-    Returns:
-        True if the token type matches.
-    """
-
-    return payload.get("type") == expected_type
-
-def decode_access_token(token: str):
-    """
-    Decode and verify a JWT access token.
-    """
-
     try:
+
+        print(
+            "DECODE TOKEN USING SECRET =",
+            JWT_SECRET_KEY
+        )
+
         payload = jwt.decode(
             token,
             JWT_SECRET_KEY,
             algorithms=[JWT_ALGORITHM],
         )
 
+        print(
+            "JWT PAYLOAD =",
+            payload
+        )
+
         return payload
 
-    except JWTError:
+    except JWTError as e:
+
+        print(
+            "JWT ERROR =",
+            e
+        )
+
         return None
+
+
+# ==========================================================
+# Decode Access Token
+# ==========================================================
+
+def decode_access_token(
+    token: str,
+) -> dict | None:
+
+    payload = decode_token(token)
+
+    if payload is None:
+        return None
+
+    if payload.get("type") != "access":
+        return None
+
+    return payload
+
+
+# ==========================================================
+# Decode Refresh Token
+# ==========================================================
+
+def decode_refresh_token(
+    token: str,
+) -> dict | None:
+
+    payload = decode_token(token)
+
+    if payload is None:
+        return None
+
+    if payload.get("type") != "refresh":
+        return None
+
+    return payload
+
+
+# ==========================================================
+# Validate Token Type
+# ==========================================================
+
+def validate_token_type(
+    payload: dict,
+    expected_type: str,
+) -> bool:
+
+    return payload.get("type")
