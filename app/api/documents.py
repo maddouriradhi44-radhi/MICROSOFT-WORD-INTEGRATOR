@@ -12,10 +12,12 @@ from app.schemas.document_schema import (
     DocumentResponse,
 )
 
+
 router = APIRouter(
     prefix="/documents",
     tags=["Documents"],
 )
+
 
 document_service = DocumentService()
 
@@ -80,11 +82,13 @@ def update_document(
     document_id: int,
     document: DocumentUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     updated_document = document_service.update_document(
         db,
         document_id,
         document,
+        current_user.id,
     )
 
     if updated_document is None:
@@ -102,10 +106,12 @@ def update_document(
 def delete_document(
     document_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     deleted = document_service.delete_document(
         db,
         document_id,
+        current_user.id,
     )
 
     if not deleted:

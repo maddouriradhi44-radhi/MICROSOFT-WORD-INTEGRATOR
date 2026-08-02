@@ -6,6 +6,7 @@ from app.schemas.document_schema import (
     DocumentCreate,
     DocumentUpdate,
 )
+from app.services.permission_service import PermissionService
 
 
 class DocumentService:
@@ -26,6 +27,13 @@ class DocumentService:
         Create and persist a new document.
         """
 
+        # Verify that the user is PROJECT_MANAGER of the project
+        PermissionService.check_project_manager(
+            db,
+            document_data.project_id,
+            owner_id,
+        )
+
         document = Document(
             title=document_data.title,
             file_path=document_data.file_path,
@@ -33,8 +41,10 @@ class DocumentService:
             project_id=document_data.project_id,
         )
 
-        return self.repository.create_document(db, document)
-
+        return self.repository.create_document(
+            db,
+            document,
+        )
     def attach_to_project(
         self,
         db: Session,
@@ -61,15 +71,19 @@ class DocumentService:
 
     def verify_project_owner(
         self,
+        db: Session,
         project_id: int,
         user_id: int,
     ) -> bool:
         """
-        Temporary placeholder.
-
-        Later this method should verify that the given user
-        is allowed to manage documents in the project.
+        Verify that user is project manager.
         """
+
+        PermissionService.check_project_manager(
+            db,
+            project_id,
+            user_id,
+        )
 
         return True
 
@@ -115,6 +129,7 @@ class DocumentService:
         db: Session,
         document_id: int,
         document_data: DocumentUpdate,
+        user_id: int,
     ) -> Document | None:
         """
         Update an existing document.
@@ -127,6 +142,13 @@ class DocumentService:
 
         if document is None:
             return None
+
+        # Check permission
+        PermissionService.check_project_manager(
+            db,
+            document.project_id,
+            user_id,
+        )
 
         updates = document_data.model_dump(
             exclude_unset=True
@@ -142,6 +164,7 @@ class DocumentService:
         self,
         db: Session,
         document_id: int,
+        user_id: int,
     ) -> bool:
         """
         Delete an existing document.
@@ -154,6 +177,13 @@ class DocumentService:
 
         if document is None:
             return False
+
+        # Check permission
+        PermissionService.check_project_manager(
+            db,
+            document.project_id,
+            user_id,
+        )
 
         self.repository.delete_document(
             db,
