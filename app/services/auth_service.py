@@ -66,16 +66,15 @@ class AuthService:
 
         hashed_password = hash_password(user_data.password)
         verification_token = generate_email_token()
-
         new_user = User(
-            first_name=user_data.first_name,
-            last_name=user_data.last_name,
-            email=user_data.email,
-            password_hash=hashed_password,
-            role=UserRole.COLLABORATOR,
-            is_verified=False,
-            verification_token=verification_token
-        )
+        first_name=user_data.first_name,
+        last_name=user_data.last_name,
+        email=user_data.email,
+        password_hash=hashed_password,
+        role=UserRole.COLLABORATOR,
+        is_verified=False,
+        verification_token=verification_token
+    )
 
         created_user = UserRepository.create(db, new_user)
 

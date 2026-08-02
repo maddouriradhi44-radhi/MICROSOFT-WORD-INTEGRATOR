@@ -12,7 +12,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from fastapi.security import OAuth2PasswordBearer
+
 
 from app.dependencies.database import get_db
 from app.dependencies.auth_dependency import get_current_user
@@ -31,15 +31,14 @@ from app.schemas.user_schema import ForgotPasswordRequest
 from app.schemas.user_schema import ResetPasswordRequest
 from app.models.user import User
 
+from app.dependencies.role_dependency import require_role
+from app.enums.user_role import UserRole
+
 router = APIRouter(
     prefix="/auth",
     tags=["Authentication"],
 )
 
-
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/auth/login"
-)
 
 
  
@@ -66,7 +65,6 @@ def register(
  
 # LOGIN
  
-
 @router.post(
     "/login",
     response_model=Token
@@ -80,9 +78,6 @@ def login(
         db,
         credentials
     )
-
-
-
  
 # CURRENT USER
  
@@ -170,4 +165,15 @@ def verify_reset_token(
 
     return {
         "message": "Token valid. You can change your password."
+    }
+
+@router.get("/manager-test")
+def manager_test(
+    current_user = Depends(
+        require_role(UserRole.PROJECT_MANAGER)
+    )
+):
+    return {
+        "message": "Welcome project manager",
+        "user": current_user.email
     }
