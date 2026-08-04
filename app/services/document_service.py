@@ -1,11 +1,19 @@
+from datetime import datetime, timedelta
+
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models.document import Document
+from app.models.document_lock import DocumentLock
+
 from app.repositories.document_repository import DocumentRepository
+from app.repositories.document_lock_repository import DocumentLockRepository
+
 from app.schemas.document_schema import (
     DocumentCreate,
     DocumentUpdate,
 )
+
 from app.services.permission_service import PermissionService
 
 
@@ -16,6 +24,8 @@ class DocumentService:
 
     def __init__(self):
         self.repository = DocumentRepository()
+        self.lock_repository = DocumentLockRepository()
+
 
     def create_document(
         self,
@@ -27,7 +37,6 @@ class DocumentService:
         Create and persist a new document.
         """
 
-        # Verify that the user is PROJECT_MANAGER of the project
         PermissionService.check_project_manager(
             db,
             document_data.project_id,
@@ -45,15 +54,14 @@ class DocumentService:
             db,
             document,
         )
+
+
     def attach_to_project(
         self,
         db: Session,
         document_id: int,
         project_id: int,
     ) -> Document | None:
-        """
-        Associate an existing document with a project.
-        """
 
         document = self.repository.get_document_by_id(
             db,
@@ -66,8 +74,11 @@ class DocumentService:
         return self.repository.update_document(
             db,
             document,
-            {"project_id": project_id},
+            {
+                "project_id": project_id
+            },
         )
+
 
     def verify_project_owner(
         self,
@@ -75,9 +86,6 @@ class DocumentService:
         project_id: int,
         user_id: int,
     ) -> bool:
-        """
-        Verify that user is project manager.
-        """
 
         PermissionService.check_project_manager(
             db,
@@ -87,6 +95,8 @@ class DocumentService:
 
         return True
 
+
+
     def prepare_docx_import(
         self,
         file_path: str,
@@ -94,35 +104,36 @@ class DocumentService:
         """
         Placeholder for future DOCX import.
         """
+
         pass
+
+
 
     def get_document_by_id(
         self,
         db: Session,
         document_id: int,
     ) -> Document | None:
-        """
-        Retrieve a document by its ID.
-        """
 
         return self.repository.get_document_by_id(
             db,
             document_id,
         )
 
+
+
     def get_project_documents(
         self,
         db: Session,
         project_id: int,
     ) -> list[Document]:
-        """
-        Retrieve all documents of a project.
-        """
 
         return self.repository.get_project_documents(
             db,
             project_id,
         )
+
+
 
     def update_document(
         self,
@@ -132,33 +143,89 @@ class DocumentService:
         user_id: int,
     ) -> Document | None:
         """
-        Update an existing document.
+        Update document safely using lock system.
         """
+
 
         document = self.repository.get_document_by_id(
             db,
             document_id,
         )
 
+
         if document is None:
             return None
 
-        # Check permission
+
+
         PermissionService.check_project_manager(
             db,
             document.project_id,
             user_id,
         )
 
+
+
+        existing_lock = self.lock_repository.get_by_document(
+            db,
+            document_id,
+        )
+
+
+
+        # Locked by another user
+        if existing_lock and existing_lock.user_id != user_id:
+            raise HTTPException(
+                status_code=423,
+                detail="Document is currently locked by another user",
+            )
+
+
+
         updates = document_data.model_dump(
             exclude_unset=True
         )
 
-        return self.repository.update_document(
-            db,
-            document,
-            updates,
-        )
+
+        temporary_lock = False
+
+
+        # No existing lock -> create temporary lock
+        if existing_lock is None:
+
+            self.create_document_lock(
+                db,
+                document_id,
+                user_id,
+            )
+
+            temporary_lock = True
+
+
+
+        try:
+
+            updated_document = self.repository.update_document(
+                db,
+                document,
+                updates,
+            )
+
+
+        finally:
+
+            if temporary_lock:
+
+                self.release_document_lock(
+                    db,
+                    document_id,
+                )
+
+
+        return updated_document
+
+
+
 
     def delete_document(
         self,
@@ -166,28 +233,156 @@ class DocumentService:
         document_id: int,
         user_id: int,
     ) -> bool:
-        """
-        Delete an existing document.
-        """
+
 
         document = self.repository.get_document_by_id(
             db,
             document_id,
         )
 
+
         if document is None:
             return False
 
-        # Check permission
+
+
         PermissionService.check_project_manager(
             db,
             document.project_id,
             user_id,
         )
 
+
         self.repository.delete_document(
             db,
             document,
         )
 
+
         return True
+
+
+
+
+    def create_document_lock(
+        self,
+        db: Session,
+        document_id: int,
+        user_id: int,
+    ) -> DocumentLock:
+        """
+        Create document lock.
+        """
+
+
+        existing_lock = self.lock_repository.get_by_document(
+            db,
+            document_id,
+        )
+
+
+        if existing_lock:
+
+            raise HTTPException(
+                status_code=423,
+                detail="Document is currently locked",
+            )
+
+
+
+        lock = DocumentLock(
+            document_id=document_id,
+            user_id=user_id,
+            locked_at=datetime.utcnow(),
+            expires_at=datetime.utcnow()
+            + timedelta(minutes=10),
+        )
+
+
+
+        return self.lock_repository.create(
+            db,
+            lock,
+        )
+
+
+
+
+    def release_document_lock(
+        self,
+        db: Session,
+        document_id: int,
+    ):
+        """
+        Release document lock.
+        """
+
+
+        lock = self.lock_repository.get_by_document(
+            db,
+            document_id,
+        )
+
+
+        if lock:
+
+            self.lock_repository.delete(
+                db,
+                lock,
+            )
+
+
+
+
+    def lock_document(
+        self,
+        db: Session,
+        document_id: int,
+        user_id: int,
+    ) -> DocumentLock:
+
+
+        return self.create_document_lock(
+            db,
+            document_id,
+            user_id,
+        )
+
+
+
+
+    def unlock_document(
+        self,
+        db: Session,
+        document_id: int,
+        user_id: int,
+    ):
+        """
+        Release lock only by owner.
+        """
+
+
+        lock = self.lock_repository.get_by_document(
+            db,
+            document_id,
+        )
+
+
+        if lock is None:
+            return
+
+
+
+        if lock.user_id != user_id:
+
+            raise HTTPException(
+                status_code=403,
+                detail="You cannot release this lock",
+            )
+
+
+
+        self.lock_repository.delete(
+            db,
+            lock,
+        )

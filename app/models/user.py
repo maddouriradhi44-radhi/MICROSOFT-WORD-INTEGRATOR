@@ -22,11 +22,11 @@ if TYPE_CHECKING:
     from app.models.notification import Notification
     from app.models.project import Project
     from app.models.project_member import ProjectMember
-    from app.models.section_lock import SectionLock
+    from app.models.document_lock import DocumentLock
     from app.models.validation import Validation
     from app.models.version import Version
-
-
+    from app.models.section import Section
+    from app.models.document_lock_queue import DocumentLockQueue
 class User(Base):
     """
     Represents an application user.
@@ -135,6 +135,11 @@ class User(Base):
         back_populates="owner"
     )
 
+    # Sections assigned to this user
+    assigned_sections: Mapped[list["Section"]] = relationship(
+    back_populates="assigned_user"
+    )
+
     # Versions created by this user
     versions: Mapped[list["Version"]] = relationship(
         back_populates="author"
@@ -156,13 +161,18 @@ class User(Base):
         cascade="all, delete-orphan",
     )
 
-    # Sections currently locked by this user
-    section_locks: Mapped[list["SectionLock"]] = relationship(
-        back_populates="user"
-    )
+    # Documents currently locked by this user
+    document_locks: Mapped[list["DocumentLock"]] = relationship(
+    back_populates="user"
+)
 
     # Audit log entries created by this user
     audit_logs: Mapped[list["AuditLog"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )
+
+    document_lock_queue: Mapped[list["DocumentLockQueue"]] = relationship(
+    back_populates="user",
+    cascade="all, delete-orphan",
+)

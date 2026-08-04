@@ -123,3 +123,42 @@ def delete_document(
     return {
         "message": "Document deleted successfully"
     }
+
+@router.post(
+    "/{document_id}/lock",
+)
+def lock_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+
+    lock = document_service.lock_document(
+        db,
+        document_id,
+        current_user.id,
+    )
+
+    return {
+        "message": "Document locked successfully",
+        "expires_at": lock.expires_at,
+    }
+
+
+@router.delete(
+    "/{document_id}/lock",
+)
+def unlock_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+
+    document_service.unlock_document(
+        db,
+        document_id,
+    )
+
+    return {
+        "message": "Document unlocked successfully"
+    }

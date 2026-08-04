@@ -16,9 +16,10 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.models.document import Document
+    from app.models.user import User
     from app.models.version import Version
     from app.models.comment import Comment
-    from app.models.section_lock import SectionLock
+    
 
 
 class Section(Base):
@@ -50,6 +51,11 @@ class Section(Base):
     project_id: Mapped[int] = mapped_column(
     ForeignKey("projects.id"),
     nullable=False
+    )
+
+    assigned_user_id: Mapped[int | None] = mapped_column(
+    ForeignKey("users.id"),
+    nullable=True,
     )
 
     # Section Information
@@ -117,10 +123,8 @@ class Section(Base):
         cascade="all, delete-orphan"
     )
 
-    # Current lock for this section
-    lock: Mapped[SectionLock | None] = relationship(
-        back_populates="section",
-        uselist=False,
-        cascade="all, delete-orphan"
+
+    # User responsible for this section
+    assigned_user: Mapped[User | None] = relationship(
+    back_populates="assigned_sections"
     )
-    

@@ -1,9 +1,5 @@
 """
-Section Lock model.
-
-This module defines the SectionLock model,
-which represents a lock placed on a section
-to prevent concurrent editing.
+Document Lock model.
 """
 
 from __future__ import annotations
@@ -16,24 +12,16 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
 
+
 if TYPE_CHECKING:
-    from app.models.section import Section
+    from app.models.document import Document
     from app.models.user import User
 
 
-class SectionLock(Base):
-    """
-    Represents a lock on a document section.
+class DocumentLock(Base):
 
-    A lock prevents multiple users from editing
-    the same section simultaneously.
-    """
+    __tablename__ = "document_locks"
 
-    __tablename__ = "section_locks"
-
-    
-    # Primary Key
-    
 
     id: Mapped[int] = mapped_column(
         Integer,
@@ -41,50 +29,38 @@ class SectionLock(Base):
         autoincrement=True
     )
 
-    
-    # Foreign Keys
-    
 
-    # Locked section
-    section_id: Mapped[int] = mapped_column(
-        ForeignKey("sections.id"),
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("documents.id"),
         nullable=False,
         unique=True
     )
 
-    # User holding the lock
+
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id"),
         nullable=False
     )
 
-    
-    # Lock Information
-    
 
-    # Lock creation time
     locked_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
         nullable=False
     )
 
-    # Lock expiration time
+
     expires_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False
     )
 
-    
-    # Relationships
-    
 
-    # Locked section
-    section: Mapped[Section] = relationship(
+    document: Mapped["Document"] = relationship(
         back_populates="lock"
     )
 
-    # User holding the lock
-    user: Mapped[User] = relationship(
-        back_populates="section_locks"
+
+    user: Mapped["User"] = relationship(
+        back_populates="document_locks"
     )

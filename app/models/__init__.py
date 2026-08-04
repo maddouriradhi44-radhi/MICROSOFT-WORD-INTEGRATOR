@@ -4,9 +4,10 @@ from app.models.project_member import ProjectMember
 from app.models.project_scope import ProjectScope
 from app.models.document import Document
 from app.models.section import Section
-from app.models.section_lock import SectionLock
+from app.models.document_lock import DocumentLock
 from app.models.comment import Comment
 from app.models.version import Version
 from app.models.validation import Validation
 from app.models.notification import Notification
 from app.models.audit_log import AuditLog
+from app.models.document_lock_queue import DocumentLockQueue

@@ -21,6 +21,8 @@ if TYPE_CHECKING:
     from app.models.user import User
     from app.models.project import Project
     from app.models.section import Section
+    from app.models.document_lock import DocumentLock
+    from app.models.document_lock_queue import DocumentLockQueue
 
 
 class Document(Base):
@@ -91,4 +93,16 @@ class Document(Base):
     ForeignKey("projects.id"),
     nullable=False
 )
+    
+    # Current lock on this document
+    lock: Mapped["DocumentLock | None"] = relationship(
+        back_populates="document",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
 
+    lock_queue: Mapped[list["DocumentLockQueue"]] = relationship(
+    back_populates="document",
+    cascade="all, delete-orphan",
+    order_by="DocumentLockQueue.requested_at",
+)
