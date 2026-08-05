@@ -380,3 +380,41 @@ class SectionService:
 
 
         return True
+
+
+    def create_sections(
+        self,
+        db: Session,
+        document_id: int,
+        sections_data: list,
+    ):
+        """
+        Create sections extracted from DOCX analyzer.
+        """
+
+        sections = []
+
+        for index, section_data in enumerate(sections_data):
+
+            section = Section(
+                document_id=document_id,
+
+                title=section_data["title"],
+
+                content=section_data["content"],
+
+                level=section_data.get("level", 1),
+
+                order=index + 1,
+
+                module=section_data.get("module", "general"),
+
+            )
+
+            sections.append(section)
+
+
+        return self.repository.create_many(
+            db,
+            sections,
+        )

@@ -1,4 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    UploadFile,
+    File,
+    Form,
+)
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
@@ -11,6 +18,7 @@ from app.schemas.document_schema import (
     DocumentUpdate,
     DocumentResponse,
 )
+from app.services.storage_service import StorageService
 
 
 router = APIRouter(
@@ -27,16 +35,39 @@ document_service = DocumentService()
     response_model=DocumentResponse,
 )
 def create_document(
-    document: DocumentCreate,
+    title: str = Form(...),
+    project_id: int = Form(...),
+    file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return document_service.create_document(
-        db=db,
-        document_data=document,
-        owner_id=current_user.id,
+
+    storage_service = StorageService()
+
+    if file.content_type != "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        raise HTTPException(
+            status_code=400,
+            detail="Only .docx files are allowed",
+        )
+
+    storage_key = storage_service.save_file(
+        file
     )
 
+
+    document_data = DocumentCreate(
+        title=title,
+        project_id=project_id,
+    )
+
+
+    return document_service.create_document(
+        db=db,
+        document_data=document_data,
+        owner_id=current_user.id,
+        storage_key=storage_key,
+        original_filename=file.filename,
+    )
 
 @router.get(
     "/{document_id}",
@@ -149,14 +180,15 @@ def lock_document(
     "/{document_id}/lock",
 )
 def unlock_document(
-    document_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+        document_id: int,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user),
+    ):
 
     document_service.unlock_document(
         db,
         document_id,
+        current_user.id,
     )
 
     return {

@@ -106,3 +106,5 @@ class Document(Base):
     cascade="all, delete-orphan",
     order_by="DocumentLockQueue.requested_at",
 )
+
+    

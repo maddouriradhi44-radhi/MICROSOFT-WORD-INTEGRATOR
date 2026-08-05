@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from app.models.user import User
     from app.models.version import Version
     from app.models.comment import Comment
+    from app.models.document_block import DocumentBlock
     
 
 
@@ -127,4 +128,10 @@ class Section(Base):
     # User responsible for this section
     assigned_user: Mapped[User | None] = relationship(
     back_populates="assigned_sections"
+    )
+
+        # Blocks belonging to this section
+    blocks: Mapped[list["DocumentBlock"]] = relationship(
+        back_populates="section",
+        cascade="all, delete-orphan"
     )

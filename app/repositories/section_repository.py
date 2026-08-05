@@ -35,6 +35,25 @@ class SectionRepository:
 
 
 
+    def create_many(
+        self,
+        db: Session,
+        sections: list[Section],
+    ) -> list[Section]:
+        """
+        Save multiple sections into the database at once.
+        """
+
+        db.add_all(sections)
+        db.commit()
+
+        for section in sections:
+            db.refresh(section)
+
+        return sections
+
+    
+
     def get_section_by_id(
         self,
         db: Session,

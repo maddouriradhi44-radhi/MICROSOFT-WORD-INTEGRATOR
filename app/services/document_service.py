@@ -15,7 +15,14 @@ from app.schemas.document_schema import (
 )
 
 from app.services.permission_service import PermissionService
+from app.services.storage_service import StorageService
 
+
+from app.services.docx_analyzer_service import (
+    DocxAnalyzerService
+)
+
+from app.services.section_service import SectionService
 
 class DocumentService:
     """
@@ -32,7 +39,9 @@ class DocumentService:
         db: Session,
         document_data: DocumentCreate,
         owner_id: int,
-    ) -> Document:
+        storage_key: str,
+        original_filename: str,
+        )-> Document:
         """
         Create and persist a new document.
         """
@@ -45,15 +54,42 @@ class DocumentService:
 
         document = Document(
             title=document_data.title,
-            file_path=document_data.file_path,
+            original_filename=original_filename,
+            storage_key=storage_key,
             owner_id=owner_id,
             project_id=document_data.project_id,
-        )
+    )
 
-        return self.repository.create_document(
+        created_document = self.repository.create_document(
             db,
             document,
         )
+
+
+        storage_service = StorageService()
+
+        absolute_path = storage_service.get_absolute_path(
+            created_document.storage_key
+        )
+
+
+        analyzer = DocxAnalyzerService()
+
+        sections = analyzer.analyze(
+            absolute_path
+        )
+
+
+        section_service = SectionService()
+
+        section_service.create_sections(
+            db,
+            created_document.id,
+            sections,
+        )
+
+
+        return created_document    
 
 
     def attach_to_project(

@@ -7,6 +7,8 @@ from app.api import projects
 from app.api import documents
 from app.api import sections
 from app.api.document_lock_queue import router as document_lock_queue_router
+from app.api.document_blocks import router as document_block_router
+
 
 from app.core.exception_handlers import register_exception_handlers
 
@@ -50,6 +52,7 @@ app.include_router(projects.router)
 app.include_router(documents.router)
 app.include_router(sections.router)
 app.include_router(document_lock_queue_router)
+app.include_router(document_block_router)
 
 # Exception handlers
 register_exception_handlers(app)
