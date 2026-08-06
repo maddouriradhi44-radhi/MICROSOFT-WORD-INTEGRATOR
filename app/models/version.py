@@ -10,11 +10,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, Text, String, Boolean , Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from app.enums.version_change import VersionChangeType
 
 from app.database.base import Base
-from app.enums.validation_status import ValidationStatus
 
 if TYPE_CHECKING:
     from app.models.section import Section
@@ -52,22 +52,46 @@ class Version(Base):
         nullable=False
     )
 
-    # Section content for this version
-    content: Mapped[str] = mapped_column(
+    # Snapshot of the section title at this version
+    title_snapshot: Mapped[str] = mapped_column(
+        String(255),
+        nullable=True
+    )
+
+    # Snapshot of the section content at this version
+    content_snapshot: Mapped[str] = mapped_column(
         Text,
+        nullable=True
+    )
+
+    # Explanation of changes made in this version
+    change_comment: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True
+    )
+
+    # Indicates if this is the current active version
+    is_current: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
         nullable=False
     )
 
-    # Validation status
-    validation_status: Mapped[ValidationStatus] = mapped_column(
+    change_type: Mapped[VersionChangeType] = mapped_column(
         Enum(
-            ValidationStatus,
-            name="validation_status"
+            VersionChangeType,
+            name="version_change_type"
         ),
-        default=ValidationStatus.PENDING,
+        default=VersionChangeType.UPDATE,
         nullable=False
     )
 
+    # Indicates if this version is archived
+    is_archived: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
     # ==========================================================
     # Foreign Keys
     # ==========================================================
@@ -83,6 +107,12 @@ class Version(Base):
         ForeignKey("users.id"),
         nullable=False
     )
+
+    # Previous version reference
+    parent_version_id: Mapped[int | None] = mapped_column(
+        ForeignKey("versions.id"),
+        nullable=True
+)
 
     # ==========================================================
     # Audit Information
@@ -113,4 +143,17 @@ class Version(Base):
         back_populates="version",
         uselist=False,
         cascade="all, delete-orphan"
+    )
+
+    # Previous version
+    parent_version: Mapped["Version | None"] = relationship(
+        remote_side="Version.id",
+        back_populates="child_versions",
+        uselist=False
+    )
+
+
+    # Versions created from this version
+    child_versions: Mapped[list["Version"]] = relationship(
+        back_populates="parent_version"
     )

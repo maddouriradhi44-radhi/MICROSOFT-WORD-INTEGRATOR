@@ -47,12 +47,17 @@ class Document(Base):
         nullable=False
     )
 
-    # Absolute or relative path of the .docx file
-    file_path: Mapped[str] = mapped_column(
+    storage_key: Mapped[str | None] = mapped_column(
     String(500),
-    nullable=False
-    )
+    nullable=True,
+)
 
+    original_file_name: Mapped[str | None] = mapped_column(
+        "original_filename",
+        String(500),
+        nullable=True,
+    )
+    
     status: Mapped[DocumentStatus] = mapped_column(
     Enum(DocumentStatus, name="document_status"),
     default=DocumentStatus.IN_PROGRESS,
@@ -106,5 +111,3 @@ class Document(Base):
     cascade="all, delete-orphan",
     order_by="DocumentLockQueue.requested_at",
 )
-
-    
