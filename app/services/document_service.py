@@ -85,6 +85,7 @@ class DocumentService:
         section_service.create_sections(
             db,
             created_document.id,
+            created_document.project_id,
             sections,
         )
 

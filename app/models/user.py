@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from app.models.version import Version
     from app.models.section import Section
     from app.models.document_lock_queue import DocumentLockQueue
+    from app.models.comment_mention import CommentMention
 class User(Base):
     """
     Represents an application user.
@@ -175,4 +176,10 @@ class User(Base):
     document_lock_queue: Mapped[list["DocumentLockQueue"]] = relationship(
     back_populates="user",
     cascade="all, delete-orphan",
-)
+    )
+
+    # Comments where this user was mentioned
+    comment_mentions: Mapped[list["CommentMention"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )

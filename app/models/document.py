@@ -50,19 +50,18 @@ class Document(Base):
     storage_key: Mapped[str | None] = mapped_column(
     String(500),
     nullable=True,
-)
+    )
 
-    original_file_name: Mapped[str | None] = mapped_column(
-        "original_filename",
-        String(500),
-        nullable=True,
+    original_filename: Mapped[str | None] = mapped_column(
+    String(500),
+    nullable=True,
     )
     
     status: Mapped[DocumentStatus] = mapped_column(
     Enum(DocumentStatus, name="document_status"),
     default=DocumentStatus.IN_PROGRESS,
     nullable=False
-)
+    )
 
      # User who imported the document
     owner_id:Mapped[int] = mapped_column(

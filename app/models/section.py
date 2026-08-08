@@ -102,9 +102,10 @@ class Section(Base):
 
     # Module to which this section belongs
     module: Mapped[str] = mapped_column(
-    String(100),
-    nullable=False
-)
+        String(100),
+        nullable=False
+    )
+
 
  # Relationships
   # Parent document

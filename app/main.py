@@ -7,7 +7,7 @@ from app.api import projects
 from app.api import documents
 from app.api import sections
 from app.api import versions
-
+from app.api import comment
 from app.api.document_lock_queue import (
     router as document_lock_queue_router,
 )
@@ -52,6 +52,7 @@ app.include_router(sections.router)
 app.include_router(document_lock_queue_router)
 app.include_router(document_block_router)
 app.include_router(versions.router)
+app.include_router(comment.router)
 
 
 register_exception_handlers(app)

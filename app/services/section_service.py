@@ -382,10 +382,15 @@ class SectionService:
         return True
 
 
+    # ======================================================
+    # CREATE SECTIONS (BULK, FROM DOCX ANALYZER)
+    # ======================================================
+
     def create_sections(
         self,
         db: Session,
         document_id: int,
+        project_id: int,
         sections_data: list,
     ):
         """
@@ -398,6 +403,7 @@ class SectionService:
 
             section = Section(
                 document_id=document_id,
+                project_id=project_id,
 
                 title=section_data["title"],
 
