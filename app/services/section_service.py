@@ -33,6 +33,9 @@ from app.exceptions.permission import (
     PermissionDeniedException,
 )
 
+from app.enums.notification_type import NotificationType
+from app.enums.notification_level import NotificationLevel
+from app.services.notifications_service import NotificationService
 
 
 class SectionService:
@@ -43,7 +46,7 @@ class SectionService:
 
     def __init__(self):
         self.repository = SectionRepository()
-
+        self.notification_service = NotificationService()
 
 
     # ======================================================
@@ -154,80 +157,6 @@ class SectionService:
 
 
 
-    # ======================================================
-    # ASSIGN SECTION
-    # ======================================================
-
-    def assign_section(
-        self,
-        db: Session,
-        section_id: int,
-        assigned_user_id: int,
-        current_user_id: int,
-    ) -> Section | None:
-        """
-        Assign a section to a collaborator.
-
-        Rules:
-        - Only PROJECT_MANAGER can assign.
-        - Assigned user must belong to project.
-        """
-
-
-        section = self.repository.get_section_by_id(
-            db,
-            section_id,
-        )
-
-
-        if section is None:
-            return None
-
-
-
-        # Current user must be project manager
-
-        PermissionService.check_project_manager(
-            db,
-            section.project_id,
-            current_user_id,
-        )
-
-
-
-        # Check assigned user membership
-
-        member = ProjectMemberRepository.get_by_project_and_user(
-            db,
-            section.project_id,
-            assigned_user_id,
-        )
-
-
-        if member is None:
-            raise PermissionDeniedException()
-
-
-
-        # Reader cannot receive sections
-
-        if member.role == ProjectRole.READER:
-            raise PermissionDeniedException()
-
-
-
-        section.assigned_user_id = assigned_user_id
-
-
-        return self.repository.update_section(
-            db,
-            section,
-            {
-                "assigned_user_id": assigned_user_id
-            },
-        )
-
-
 
     # ======================================================
     # UPDATE SECTION
@@ -280,62 +209,7 @@ class SectionService:
             updates,
         )
 
-    # ======================================================
-    # ASSIGN SECTION 
-    # ======================================================
-    def assign_section(
-        self,
-        db: Session,
-        section_id: int,
-        assigned_user_id: int,
-        current_user_id: int,
-    ) -> Section | None:
-        """
-        Assign a section to a collaborator.
-
-        Only PROJECT_MANAGER can assign sections.
-        """
-
-        # Get section
-        section = self.repository.get_section_by_id(
-            db,
-            section_id,
-        )
-
-
-        if section is None:
-            return None
-
-
-
-        # Check current user is PROJECT_MANAGER
-        PermissionService.check_project_manager(
-            db,
-            section.project_id,
-            current_user_id,
-        )
-
-
-
-        # Check assigned user belongs to project
-        member = ProjectMemberRepository.get_by_project_and_user(
-            db,
-            section.project_id,
-            assigned_user_id,
-        )
-
-
-        if member is None:
-            return None
-
-
-
-        return self.repository.assign_user(
-            db,
-            section,
-            assigned_user_id,
-        )
-
+    
 
     # ======================================================
     # DELETE SECTION
@@ -424,3 +298,72 @@ class SectionService:
             db,
             sections,
         )
+
+
+    def assign_section(
+        self,
+        db: Session,
+        section_id: int,
+        assigned_user_id: int,
+        current_user_id: int,
+    ) -> Section | None:
+        """
+        Assign a section to a collaborator.
+
+        Rules:
+        - Only PROJECT_MANAGER can assign.
+        - Assigned user must belong to project.
+        - READER cannot receive sections.
+        """
+
+        section = self.repository.get_section_by_id(
+            db,
+            section_id,
+        )
+
+        if section is None:
+            return None
+
+        # Current user must be project manager
+        PermissionService.check_project_manager(
+            db,
+            section.project_id,
+            current_user_id,
+        )
+
+        # Check assigned user membership
+        member = ProjectMemberRepository.get_by_project_and_user(
+            db,
+            section.project_id,
+            assigned_user_id,
+        )
+
+        if member is None:
+            raise PermissionDeniedException()
+
+        # Reader cannot receive sections
+        if member.role == ProjectRole.READER:
+            raise PermissionDeniedException()
+
+        # Assign section
+        updated_section = self.repository.update_section(
+            db,
+            section,
+            {
+                "assigned_user_id": assigned_user_id,
+            },
+        )
+
+        # Create notification for assigned user
+        self.notification_service.create_notification(
+            db=db,
+            user_id=assigned_user_id,
+            title="Section assignée",
+            message=f"La section '{section.title}' vous a été assignée.",
+            notification_type=NotificationType.SECTION,
+            level=NotificationLevel.INFO,
+            entity_type="section",
+            entity_id=section.id,
+        )
+
+        return updated_section

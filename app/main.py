@@ -25,6 +25,8 @@ from app.scheduler.lock_queue_scheduler import (
     stop_scheduler,
 )
 
+from app.api.notification import router as notification_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -53,7 +55,7 @@ app.include_router(document_lock_queue_router)
 app.include_router(document_block_router)
 app.include_router(versions.router)
 app.include_router(comment.router)
-
+app.include_router(notification_router)
 
 register_exception_handlers(app)
 

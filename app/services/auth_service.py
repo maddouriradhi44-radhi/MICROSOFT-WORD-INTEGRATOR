@@ -25,6 +25,11 @@ from app.utils.email_token import generate_email_token
 from app.utils.email_validator import validate_email_domain
 from app.utils.token_generator import generate_token
 from app.services.email_service import EmailService
+from app.services.notifications_service import NotificationService
+from app.enums.notification_type import NotificationType
+from app.enums.notification_level import NotificationLevel
+
+notification_service = NotificationService()
 
 
 class AuthService:
@@ -83,10 +88,16 @@ class AuthService:
             created_user.verification_token
         )
 
-        # Register renvoie l'utilisateur créé, PAS un token —
-        # l'utilisateur doit ensuite se connecter via /login
-        return UserResponse.model_validate(created_user)
+        notification_service.notify_user(
+            db=db,
+            user_id=created_user.id,
+            title="Account Created",
+            message="Your account has been created successfully. Please verify your email address.",
+            notification_type=NotificationType.SECURITY,
+            level=NotificationLevel.SUCCESS,
+        )
 
+        return UserResponse.model_validate(created_user)
     @staticmethod
     def login(
         db: Session,
