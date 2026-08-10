@@ -112,13 +112,16 @@ class AuthService:
             credentials.email
         )
 
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid email or password."
+        if not user.is_verified:
+            notification_service.notify_user(
+                db=db,
+                user_id=user.id,
+                title="Unverified Login Attempt",
+                message="A login attempt was made while your email address is not verified.",
+                notification_type=NotificationType.SECURITY,
+                level=NotificationLevel.WARNING,
             )
 
-        if not user.is_verified:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Email not verified."
@@ -128,6 +131,15 @@ class AuthService:
             credentials.password,
             user.password_hash
         ):
+            notification_service.notify_user(
+                db=db,
+                user_id=user.id,
+                title="Failed Login Attempt",
+                message="A failed login attempt was detected on your account.",
+                notification_type=NotificationType.SECURITY,
+                level=NotificationLevel.WARNING,
+            )
+
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password."
@@ -136,6 +148,15 @@ class AuthService:
         # Login génère et renvoie le token JWT
         token = create_access_token(
             {"sub": user.email}
+        )
+
+        notification_service.notify_user(
+            db=db,
+            user_id=user.id,
+            title="Successful Login",
+            message="You have successfully logged in to your account.",
+            notification_type=NotificationType.SECURITY,
+            level=NotificationLevel.INFO,
         )
 
         return Token(
@@ -197,8 +218,18 @@ class AuthService:
         user.is_verified = True
         user.verification_token = None
         user.verification_token_expires = None
+
         db.commit()
         db.refresh(user)
+
+        notification_service.notify_user(
+            db=db,
+            user_id=user.id,
+            title="Email Verified",
+            message="Your email address has been successfully verified.",
+            notification_type=NotificationType.SECURITY,
+            level=NotificationLevel.SUCCESS,
+        )
 
         return {
             "message": "Email verified successfully."
@@ -245,6 +276,15 @@ class AuthService:
             reset_token
         )
 
+        notification_service.notify_user(
+            db=db,
+            user_id=user.id,
+            title="Password Reset Requested",
+            message="A password reset request has been made for your account.",
+            notification_type=NotificationType.SECURITY,
+            level=NotificationLevel.WARNING,
+        )
+
         return {
             "message": "Password reset email sent."
         }
@@ -285,7 +325,19 @@ class AuthService:
         db.commit()
         db.refresh(user)
 
+        notification_service.notify_user(
+            db=db,
+            user_id=user.id,
+            title="Password Changed",
+            message="Your password has been successfully changed.",
+            notification_type=NotificationType.SECURITY,
+            level=NotificationLevel.SUCCESS,
+        )
+
         return {
             "message": "Password successfully changed"
         }
+
+    
+
     

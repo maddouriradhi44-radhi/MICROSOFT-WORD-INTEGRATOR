@@ -63,42 +63,6 @@ class NotificationRepository:
             .all()
         )
 
-    def get_unread_by_user(
-        self,
-        db: Session,
-        user_id: int,
-    ) -> list[Notification]:
-        """
-        Retrieve all unread notifications belonging to a user.
-        """
-
-        return (
-            db.query(Notification)
-            .filter(
-                Notification.user_id == user_id,
-                Notification.is_read.is_(False),
-            )
-            .order_by(Notification.created_at.desc())
-            .all()
-        )
-
-    def count_unread_by_user(
-        self,
-        db: Session,
-        user_id: int,
-    ) -> int:
-        """
-        Count unread notifications belonging to a user.
-        """
-
-        return (
-            db.query(Notification)
-            .filter(
-                Notification.user_id == user_id,
-                Notification.is_read.is_(False),
-            )
-            .count()
-        )
 
     def mark_as_read(
         self,
@@ -197,31 +161,3 @@ class NotificationRepository:
             )
             .count()
         )
-
-
-    def mark_all_as_read(
-        self,
-        db: Session,
-        user_id: int,
-    ) -> int:
-        """
-        Mark all unread notifications of a user as read.
-
-        Returns the number of notifications updated.
-        """
-
-        notifications = (
-            db.query(Notification)
-            .filter(
-                Notification.user_id == user_id,
-                Notification.is_read.is_(False),
-            )
-            .all()
-        )
-
-        for notification in notifications:
-            notification.is_read = True
-
-        db.commit()
-
-        return len(notifications)

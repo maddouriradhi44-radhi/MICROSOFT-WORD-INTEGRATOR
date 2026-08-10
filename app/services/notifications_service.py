@@ -5,7 +5,6 @@ This module contains the business logic related
 to notifications.
 """
 
-from datetime import datetime
 
 from sqlalchemy.orm import Session
 
@@ -155,10 +154,6 @@ class NotificationService:
         if notification is None:
             return None
 
-        if not notification.is_read:
-            notification.is_read = True
-            notification.read_at = datetime.utcnow()
-
         return self.repository.mark_as_read(
             db,
             notification,
@@ -173,20 +168,10 @@ class NotificationService:
         Mark all unread notifications of a user as read.
         """
 
-        notifications = self.repository.get_unread(
+        return self.repository.mark_all_as_read(
             db,
             user_id,
         )
-
-        now = datetime.utcnow()
-
-        for notification in notifications:
-            notification.is_read = True
-            notification.read_at = now
-
-        db.commit()
-
-        return len(notifications)
 
     def delete_notification(
         self,
