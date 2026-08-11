@@ -127,3 +127,23 @@ class ProjectMemberRepository:
         )
 
         return result.scalar_one_or_none()
+
+
+    @staticmethod
+    def count_project_managers(
+        db: Session,
+        project_id: int,
+    ) -> int:
+        """
+        Count the number of project managers
+        in a project.
+        """
+
+        result = db.execute(
+            select(ProjectMember).where(
+                ProjectMember.project_id == project_id,
+                ProjectMember.role == ProjectRole.PROJECT_MANAGER,
+            )
+        )
+
+        return len(result.scalars().all())

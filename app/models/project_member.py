@@ -20,8 +20,10 @@ if TYPE_CHECKING:
     from app.models.project import Project
     from app.models.project_scope import ProjectScope
 
+
 from sqlalchemy import Enum
 from app.enums.project_role import ProjectRole
+
 
 class ProjectMember(Base):
     """
@@ -98,4 +100,4 @@ class ProjectMember(Base):
     role: Mapped[ProjectRole] = mapped_column(
     Enum(ProjectRole, name="project_role"),
     nullable=False
-    )   
+    )  

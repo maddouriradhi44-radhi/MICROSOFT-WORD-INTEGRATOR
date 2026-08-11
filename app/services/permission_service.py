@@ -45,6 +45,25 @@ class PermissionService:
 
         return member
 
+
+    @staticmethod
+    def get_project_role(
+        db: Session,
+        project_id: int,
+        user_id: int,
+    ) -> ProjectRole:
+        """
+        Retrieve a user's role in a project.
+        """
+
+        member = PermissionService.get_project_member(
+            db,
+            project_id,
+            user_id,
+        )
+
+        return member.role
+
     @staticmethod
     def require_project_manager(
         member: ProjectMember,
@@ -109,3 +128,6 @@ class PermissionService:
             return True
 
         raise PermissionDeniedException()
+
+
+    
