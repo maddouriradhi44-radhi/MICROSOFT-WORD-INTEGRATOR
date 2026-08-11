@@ -5,7 +5,7 @@ This module contains endpoints
 related to project management.
 """
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
@@ -13,23 +13,29 @@ from app.database.session import get_db
 from app.schemas.project_schema import (
     ProjectCreate,
     ProjectResponse,
-     AddMemberRequest,
+    ProjectUpdate,
+    UserProjectResponse,
+    AddMemberRequest,
     ProjectMemberResponse,
-    UpdateMemberRoleRequest
+    UpdateMemberRoleRequest,
 )
 
 from app.services.project_service import ProjectService
 from app.services.project_member_service import ProjectMemberService
 from app.services.permission_service import PermissionService
 
+from app.exceptions.project import LastProjectManagerException
+
 from app.models.user import User
 
 from app.dependencies.auth_dependency import get_current_user
+
 
 router = APIRouter(
     prefix="/projects",
     tags=["Projects"]
 )
+
 
 @router.post(
     "",
@@ -57,23 +63,83 @@ def create_project(
 
     return project
 
+
 @router.get(
     "",
-    response_model=list[ProjectResponse],
+    response_model=list[UserProjectResponse],
 )
 def get_my_projects(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Return all projects of the authenticated user.
+    Return all projects of the authenticated user
+    together with their role in each project.
     """
 
     return ProjectService.get_user_projects(
         db=db,
         user_id=current_user.id,
-
     )
+
+
+@router.put(
+    "/{project_id}",
+    response_model=ProjectResponse,
+)
+def update_project(
+    project_id: int,
+    data: ProjectUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Update project information.
+
+    Only the PROJECT_MANAGER can update the project.
+    """
+
+    PermissionService.check_project_manager(
+        db=db,
+        project_id=project_id,
+        user_id=current_user.id,
+    )
+
+    return ProjectService.update_project(
+        db=db,
+        project_id=project_id,
+        name=data.name,
+        description=data.description,
+        status=data.status,
+    )
+
+
+@router.delete(
+    "/{project_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Delete a project.
+
+    Only the PROJECT_MANAGER can delete the project.
+    """
+
+    PermissionService.check_project_manager(
+        db=db,
+        project_id=project_id,
+        user_id=current_user.id,
+    )
+
+    ProjectService.delete_project(
+        db=db,
+        project_id=project_id,
+    )
+
 
 @router.post(
     "/{project_id}/members",
@@ -90,13 +156,11 @@ def add_member(
     Add a user to a project.
     """
 
-    # Check that current user is PROJECT_MANAGER
     PermissionService.check_project_manager(
         db=db,
         project_id=project_id,
         user_id=current_user.id,
     )
-
 
     return ProjectMemberService.add_member(
         db=db,
@@ -104,6 +168,7 @@ def add_member(
         email=data.email,
         role=data.role,
     )
+
 
 @router.get(
     "/{project_id}/members",
@@ -117,10 +182,12 @@ def get_project_members(
     """
     Return all members of a project.
     """
+
     return ProjectMemberService.get_project_members(
-    db=db,
-    project_id=project_id,
-)
+        db=db,
+        project_id=project_id,
+    )
+
 
 @router.put(
     "/{project_id}/members/{user_id}",
@@ -138,16 +205,18 @@ def update_member_role(
     """
 
     PermissionService.check_project_manager(
-    db=db,
-    project_id=project_id,
-    user_id=current_user.id,
-)
+        db=db,
+        project_id=project_id,
+        user_id=current_user.id,
+    )
+
     return ProjectMemberService.update_member_role(
-    db=db,
-    project_id=project_id,
-    user_id=user_id,
-    new_role=data.role,
-)
+        db=db,
+        project_id=project_id,
+        user_id=user_id,
+        new_role=data.role,
+    )
+
 
 @router.delete(
     "/{project_id}/members/{user_id}",
@@ -159,20 +228,27 @@ def remove_member(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-
-    PermissionService.check_project_manager(
-    db=db,
-    project_id=project_id,
-    user_id=current_user.id,
-)
     """
     Remove a member from a project.
+
+    Only the PROJECT_MANAGER can remove a member.
     """
 
-    ProjectMemberService.remove_member(
+    PermissionService.check_project_manager(
         db=db,
         project_id=project_id,
-        user_id=user_id,
+        user_id=current_user.id,
     )
 
-    return None
+    try:
+        ProjectMemberService.remove_member(
+            db=db,
+            project_id=project_id,
+            user_id=user_id,
+        )
+    except LastProjectManagerException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+

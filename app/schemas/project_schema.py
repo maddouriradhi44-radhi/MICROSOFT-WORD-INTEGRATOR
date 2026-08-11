@@ -55,6 +55,25 @@ class ProjectResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class UserProjectResponse(BaseModel):
+    """
+    Schema returned when listing projects
+    accessible to the current user.
+    """
+
+    id: int
+    name: str
+    description: str
+    status: ProjectStatus
+    owner_id: int
+    created_at: datetime
+    role: ProjectRole
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
+
+
 class AddMemberRequest(BaseModel):
     """
     Schema used to add a member to a project.

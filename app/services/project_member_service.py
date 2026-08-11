@@ -24,12 +24,18 @@ from app.repositories.user_repository import (
 from app.enums.project_role import ProjectRole
 
 from app.exceptions.project import (
-    ProjectNotFoundException
+    ProjectNotFoundException,
+    LastProjectManagerException,
 )
 
 from app.exceptions.user import (
     UserNotFoundException
 )
+
+from app.enums.notification_level import NotificationLevel
+from app.enums.notification_type import NotificationType
+
+from app.services.notifications_service import NotificationService
 
 
 class ProjectMemberService:
@@ -48,7 +54,7 @@ class ProjectMemberService:
         project_id: int,
         email: str,
         role: ProjectRole,
-    ) -> ProjectMember:
+        ) -> ProjectMember:
         """
         Add a user to a project.
         """
@@ -57,41 +63,32 @@ class ProjectMemberService:
         # Check project existence
         project = ProjectRepository.get_by_id(
             db,
-            project_id
+            project_id,
         )
 
         if project is None:
             raise ProjectNotFoundException(project_id)
 
-
-
         # Check user existence
         user = UserRepository.get_by_email(
             db,
-            email
+            email,
         )
-
-        print("SEARCH EMAIL =", email)
-        print("FOUND USER =", user)
 
         if user is None:
             raise UserNotFoundException(email)
-
-
 
         # Check duplicate membership
         existing_member = ProjectMemberRepository.get_by_project_and_user(
             db,
             project_id,
-            user.id
+            user.id,
         )
 
         if existing_member:
             raise Exception(
                 "User is already a member of this project"
             )
-
-
 
         # Create membership
         member = ProjectMember(
@@ -100,11 +97,26 @@ class ProjectMemberService:
             role=role,
         )
 
-
-        return ProjectMemberRepository.create(
+        member = ProjectMemberRepository.create(
             db,
-            member
+            member,
         )
+
+        # Notify the added member
+        notification_service = NotificationService()
+
+        notification_service.notify_user(
+            db=db,
+            user_id=user.id,
+            title="Ajout à un projet",
+            message=f"Vous avez été ajouté au projet « {project.name} ».",
+            notification_type=NotificationType.PROJECT,
+            level=NotificationLevel.INFO,
+            entity_type="project",
+            entity_id=project.id,
+        )
+
+        return member
 
 
 
@@ -150,35 +162,55 @@ class ProjectMemberService:
         project_id: int,
         user_id: int,
         new_role: ProjectRole,
-    ) -> ProjectMember:
+        ) -> ProjectMember:
         """
         Update member role inside project.
         """
 
-
         member = ProjectMemberRepository.get_by_project_and_user(
             db,
             project_id,
-            user_id
+            user_id,
         )
-
 
         if member is None:
             raise UserNotFoundException(user_id)
 
-
-
-        return ProjectMemberRepository.update_role(
+        # Update the member role
+        member = ProjectMemberRepository.update_role(
             db,
             member,
-            new_role
+            new_role,
         )
 
+        # Get project information
+        project = ProjectRepository.get_by_id(
+            db,
+            project_id,
+        )
 
+        # Notify the affected user
+        notification_service = NotificationService()
 
-    # ==========================================================
-    # REMOVE MEMBER
-    # ==========================================================
+        notification_service.notify_user(
+            db=db,
+            user_id=user_id,
+            title="Rôle du projet modifié",
+            message=(
+                f"Votre rôle dans le projet "
+                f"« {project.name} » a été modifié en "
+                f"{new_role.value}."
+            ),
+            notification_type=NotificationType.PROJECT,
+            level=NotificationLevel.INFO,
+            entity_type="project",
+            entity_id=project_id,
+        )
+
+        return member
+# ==========================================================
+# REMOVE MEMBER
+# ==========================================================
 
     @staticmethod
     def remove_member(
@@ -188,22 +220,63 @@ class ProjectMemberService:
     ) -> None:
         """
         Remove a member from a project.
+
+        A project must always have at least
+        one PROJECT_MANAGER.
         """
 
-
+        # Get the member
         member = ProjectMemberRepository.get_by_project_and_user(
             db,
             project_id,
-            user_id
+            user_id,
         )
-
 
         if member is None:
             raise UserNotFoundException(user_id)
 
+        # Prevent removing the last project manager
+        if member.role == ProjectRole.PROJECT_MANAGER:
 
+            project_manager_count = (
+                ProjectMemberRepository.count_project_managers(
+                    db,
+                    project_id,
+                )
+            )
 
+            if project_manager_count <= 1:
+                raise LastProjectManagerException()
+
+        # Get project information before deleting the member
+        project = ProjectRepository.get_by_id(
+            db,
+            project_id,
+        )
+
+        if project is None:
+            raise ProjectNotFoundException(project_id)
+
+        # Remove the member
         ProjectMemberRepository.delete(
             db,
-            member
+            member,
         )
+
+        # Notify the removed user
+        notification_service = NotificationService()
+
+        notification_service.notify_user(
+            db=db,
+            user_id=user_id,
+            title="Removed from Project",
+            message=(
+                f"You have been removed from the project"
+                f"« {project.name} »."
+            ),
+            notification_type=NotificationType.PROJECT,
+            level=NotificationLevel.INFO,
+            entity_type="project",
+            entity_id=project_id,
+        )
+

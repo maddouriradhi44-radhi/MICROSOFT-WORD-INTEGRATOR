@@ -63,18 +63,22 @@ class ProjectRepository:
     def get_user_projects(
         db: Session,
         user_id: int,
-    ) -> list[Project]:
+    ) -> list[tuple[Project, ProjectMember]]:
         """
-        Return all projects where the user is a member.
+        Return all projects where the user is a member,
+        together with the user's role in each project.
         """
 
         result = db.execute(
-            select(Project)
-            .join(ProjectMember)
+            select(Project, ProjectMember)
+            .join(
+                ProjectMember,
+                ProjectMember.project_id == Project.id,
+            )
             .where(ProjectMember.user_id == user_id)
         )
 
-        return list(result.scalars().all())
+        return list(result.all())
 
     
     @staticmethod
