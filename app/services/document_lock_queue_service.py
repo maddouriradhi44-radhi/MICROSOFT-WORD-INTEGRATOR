@@ -16,6 +16,11 @@ from app.repositories.document_lock_queue_repository import (
 
 from app.services.document_service import DocumentService
 
+from app.services.notifications_service import NotificationService
+
+from app.enums.notification_level import NotificationLevel
+from app.enums.notification_type import NotificationType
+
 
 class DocumentLockQueueService:
     """
@@ -26,6 +31,7 @@ class DocumentLockQueueService:
         self.lock_repository = DocumentLockRepository()
         self.queue_repository = DocumentLockQueueRepository()
         self.document_service = DocumentService()
+        self.notification_service = NotificationService()
 
     def request_lock(
         self,
@@ -82,10 +88,46 @@ class DocumentLockQueueService:
             status=LockRequestStatus.WAITING,
         )
 
-        return self.queue_repository.add_to_queue(
+        queue_item = self.queue_repository.add_to_queue(
             db,
             queue_item,
         )
+
+        # ======================================================
+        # NOTIFY THE USER WHO REQUESTED THE LOCK
+        # ======================================================
+
+        now = datetime.utcnow()
+
+        remaining_seconds = max(
+            0,
+            int(
+                (
+                    existing_lock.expires_at - now
+                ).total_seconds()
+            ),
+        )
+
+        minutes = remaining_seconds // 60
+        seconds = remaining_seconds % 60
+
+        time_remaining = f"{minutes:02d}:{seconds:02d}"
+
+        self.notification_service.notify_user(
+            db=db,
+            user_id=user_id,
+            title="Document Currently Locked",
+            message=(
+                "Another user is currently editing this document.\n"
+                f"Time remaining: {time_remaining}"
+            ),
+            notification_type=NotificationType.LOCK,
+            level=NotificationLevel.INFO,
+            entity_type="document",
+            entity_id=document_id,
+        )
+
+        return queue_item
 
     def release_lock(
         self,
@@ -94,16 +136,22 @@ class DocumentLockQueueService:
     ):
         """
         Release the current lock and notify
-        the next waiting user.
+        the first waiting user.
         """
 
-        # Remove current lock
+        # ======================================================
+        # REMOVE CURRENT LOCK
+        # ======================================================
+
         self.document_service.release_document_lock(
             db,
             document_id,
         )
 
-        # First WAITING user (FIFO)
+        # ======================================================
+        # GET FIRST WAITING USER (FIFO)
+        # ======================================================
+
         next_user = (
             self.queue_repository.get_next_waiting_user(
                 db,
@@ -116,10 +164,11 @@ class DocumentLockQueueService:
                 "message": "No user waiting."
             }
 
+        # ======================================================
+        # MARK USER AS NOTIFIED
+        # ======================================================
 
-        # Save notification time
         next_user.notified_at = datetime.now(timezone.utc)
-
 
         self.queue_repository.update_status(
             db,
@@ -127,6 +176,24 @@ class DocumentLockQueueService:
             LockRequestStatus.NOTIFIED,
         )
 
+        # ======================================================
+        # SEND NOTIFICATION TO NEXT USER ONLY
+        # ======================================================
+
+        self.notification_service.notify_user(
+            db=db,
+            user_id=next_user.user_id,
+            title="Document Available",
+            message=(
+                "The document is now available for editing.\n"
+                "Do you want to edit it?\n"
+                "Time remaining: 01:00"
+            ),
+            notification_type=NotificationType.LOCK,
+            level=NotificationLevel.INFO,
+            entity_type="document",
+            entity_id=document_id,
+        )
 
         return {
             "message": "Next user has been notified.",
@@ -259,23 +326,46 @@ class DocumentLockQueueService:
                 detail="Request is not ready.",
             )
 
+        # ======================================================
+        # UPDATE REQUEST STATUS
+        # ======================================================
 
-        # Update status
         self.queue_repository.update_status(
             db,
             request,
             LockRequestStatus.REFUSED,
         )
 
+        # ======================================================
+        # NOTIFY THE USER WHO REFUSED
+        # ======================================================
 
-        # Remove from queue
+        self.notification_service.notify_user(
+            db=db,
+            user_id=user_id,
+            title="Document Edit Request Refused",
+            message=(
+                "You cannot edit this document at this time."
+            ),
+            notification_type=NotificationType.LOCK,
+            level=NotificationLevel.INFO,
+            entity_type="document",
+            entity_id=document_id,
+        )
+
+        # ======================================================
+        # REMOVE USER FROM QUEUE
+        # ======================================================
+
         self.queue_repository.remove_from_queue(
             db,
             request,
         )
 
+        # ======================================================
+        # NOTIFY NEXT USER IN FIFO
+        # ======================================================
 
-        # Notify next user in FIFO
         return self.release_lock(
             db,
             document_id,

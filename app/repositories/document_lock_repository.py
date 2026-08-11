@@ -5,6 +5,8 @@ This module handles database operations
 related to document locks.
 """
 
+from datetime import datetime
+
 from sqlalchemy.orm import Session
 
 from app.models.document_lock import DocumentLock
@@ -15,7 +17,6 @@ class DocumentLockRepository:
     Repository responsible for DocumentLock operations.
     """
 
-
     @staticmethod
     def get_by_document(
         db: Session,
@@ -23,9 +24,12 @@ class DocumentLockRepository:
     ) -> DocumentLock | None:
         """
         Retrieve the active lock of a document.
+
+        If the lock has expired, it is automatically deleted
+        and None is returned.
         """
 
-        return (
+        lock = (
             db.query(DocumentLock)
             .filter(
                 DocumentLock.document_id == document_id
@@ -33,7 +37,18 @@ class DocumentLockRepository:
             .first()
         )
 
+        if lock is None:
+            return None
 
+        # Check expiration
+        if lock.expires_at <= datetime.utcnow():
+
+            db.delete(lock)
+            db.commit()
+
+            return None
+
+        return lock
 
     @staticmethod
     def create(
@@ -49,8 +64,6 @@ class DocumentLockRepository:
         db.refresh(lock)
 
         return lock
-
-
 
     @staticmethod
     def delete(
