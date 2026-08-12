@@ -15,6 +15,12 @@ from app.models.comment import Comment
 from app.repositories.comment_repository import CommentRepository
 from app.enums.comment_status import CommentStatus
 
+from app.enums.notification_type import NotificationType
+from app.enums.notification_level import NotificationLevel
+from app.services.notifications_service import NotificationService
+
+from app.repositories.section_repository import SectionRepository
+from app.repositories.project_member_repository import ProjectMemberRepository
 
 class CommentService:
     """
@@ -24,6 +30,8 @@ class CommentService:
     def __init__(self):
         self.repository = CommentRepository()
         self.mention_service = CommentMentionService()
+        self.notification_service = NotificationService()
+        self.section_repository = SectionRepository()
 
     def create_comment(
         self,
@@ -51,6 +59,70 @@ class CommentService:
             comment,
         )
 
+        # ==================================================
+        # NOTIFICATION — NEW COMMENT
+        # ==================================================
+
+        section = self.section_repository.get_section_by_id(
+            db,
+            section_id,
+        )
+
+        if section is not None:
+
+            project_manager = (
+                ProjectMemberRepository.get_project_manager(
+                    db,
+                    section.project_id,
+                )
+            )
+
+            notification_users = set()
+
+            # ----------------------------------------------
+            # Project Manager
+            # ----------------------------------------------
+
+            if (
+                project_manager is not None
+                and project_manager.user_id != author_id
+            ):
+                notification_users.add(
+                    project_manager.user_id
+                )
+
+            # ----------------------------------------------
+            # Assigned Collaborator
+            # ----------------------------------------------
+
+            if (
+                section.assigned_user_id is not None
+                and section.assigned_user_id != author_id
+            ):
+                notification_users.add(
+                    section.assigned_user_id
+                )
+
+            # ----------------------------------------------
+            # Send notifications
+            # ----------------------------------------------
+
+            for recipient_id in notification_users:
+
+                self.notification_service.create_notification(
+                    db=db,
+                    user_id=recipient_id,
+                    title="New Comment",
+                    message=(
+                        f'A new comment has been added '
+                        f'to the section "{section.title}".'
+                    ),
+                    notification_type=NotificationType.COMMENT,
+                    level=NotificationLevel.INFO,
+                    entity_type="comment",
+                    entity_id=comment.id,
+                )
+
         mentioned_names = extract_mentions(content)
 
         for name in mentioned_names:
@@ -66,11 +138,31 @@ class CommentService:
             if user is None:
                 continue
 
-            self.mention_service.create_mention(
+            mention = self.mention_service.create_mention(
                 db,
                 comment_id=comment.id,
                 user_id=user.id,
             )
+
+            # ==================================================
+            # NOTIFICATION — MENTION
+            # ==================================================
+
+            if user.id != author_id:
+
+                self.notification_service.create_notification(
+                    db=db,
+                    user_id=user.id,
+                    title="You Were Mentioned",
+                    message=(
+                        f'You were mentioned in a comment '
+                        f'on the section "{section.title}".'
+                    ),
+                    notification_type=NotificationType.MENTION,
+                    level=NotificationLevel.INFO,
+                    entity_type="comment",
+                    entity_id=comment.id,
+                )
 
         return comment
 
