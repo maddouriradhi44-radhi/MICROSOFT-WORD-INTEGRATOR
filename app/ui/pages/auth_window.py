@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QMainWindow, QStackedWidget
-
+from app.ui.pages.projects.my_projects_screen import MyProjectsScreen
 from app.ui.components.auth_widgets import BG_WINDOW
 from app.ui.pages.login_screen import LoginScreen
 from app.ui.pages.signup_screen import SignUpScreen
@@ -14,9 +14,10 @@ class AuthWindow(QMainWindow):
         super().__init__()
 
         self.on_authenticated = on_authenticated
-
+        self.my_projects_screen = None
         self.setWindowTitle("Microsoft Word Integrator")
-        self.setFixedSize(480, 640)
+        self.resize(480,640)
+        self.setMinimumSize(400,500)
         self.setStyleSheet(
             f"QMainWindow {{ background-color: {BG_WINDOW}; }}"
         )
@@ -39,8 +40,29 @@ class AuthWindow(QMainWindow):
         self.stack.setCurrentWidget(self.login_screen)
 
     def _handle_authenticated(self, auth_result):
-        if self.on_authenticated:
-            self.on_authenticated(auth_result)
+        user = auth_result.user
+
+        self.my_projects_screen = MyProjectsScreen(
+            user=user
+        )
+
+        self.my_projects_screen.open_project.connect(
+            self._handle_project_open
+        )
+
+        self.stack.addWidget(
+            self.my_projects_screen
+        )
+
+        self.stack.setCurrentWidget(
+            self.my_projects_screen
+        )
+        
+    def _handle_project_open(self, project):
+        print(
+            f"Opening project {project.id} "
+            f"with role {project.role}"
+        )
 
     def navigate_to(self, screen_name, **kwargs):
 
