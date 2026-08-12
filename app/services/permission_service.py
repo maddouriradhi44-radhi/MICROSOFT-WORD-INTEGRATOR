@@ -107,7 +107,6 @@ class PermissionService:
         Rules:
         - PROJECT_MANAGER -> all sections.
         - COLLABORATOR -> only assigned sections.
-        - READER -> no edit.
         """
 
         member = PermissionService.get_project_member(
