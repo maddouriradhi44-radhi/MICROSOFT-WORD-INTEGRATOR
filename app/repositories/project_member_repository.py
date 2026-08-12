@@ -60,21 +60,22 @@ class ProjectMemberRepository:
 
 
     @staticmethod
-    def get_project_members(
+    def get_project_manager(
         db: Session,
         project_id: int,
-    ) -> list[ProjectMember]:
+    ) -> ProjectMember | None:
         """
-        Return all members of a project.
+        Retrieve the Project Manager of a project.
         """
 
         result = db.execute(
             select(ProjectMember).where(
-                ProjectMember.project_id == project_id
+                ProjectMember.project_id == project_id,
+                ProjectMember.role == ProjectRole.PROJECT_MANAGER,
             )
         )
 
-        return list(result.scalars().all())
+        return result.scalar_one_or_none()
 
     @staticmethod
     def update_role(
