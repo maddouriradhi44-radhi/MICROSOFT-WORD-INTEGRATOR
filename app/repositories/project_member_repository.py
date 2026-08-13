@@ -77,6 +77,26 @@ class ProjectMemberRepository:
 
         return result.scalar_one_or_none()
 
+
+
+    @staticmethod
+    def get_project_members(
+        db: Session,
+        project_id: int,
+    ) -> list[ProjectMember]:
+        """
+        Retrieve all members of a project.
+        """
+        return (
+            db.query(ProjectMember)
+            .filter(
+                ProjectMember.project_id == project_id
+            )
+            .all()
+        )
+
+    
+
     @staticmethod
     def update_role(
         db: Session,

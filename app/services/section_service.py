@@ -36,6 +36,8 @@ from app.enums.notification_type import NotificationType
 from app.enums.notification_level import NotificationLevel
 from app.services.notifications_service import NotificationService
 
+from app.models.document_block import DocumentBlock
+
 
 class SectionService:
     """
@@ -483,7 +485,8 @@ class SectionService:
         sections_data: list,
     ):
         """
-        Create sections extracted from DOCX analyzer.
+        Create sections and their document blocks
+        extracted by the DOCX analyzer.
         """
 
         sections = []
@@ -494,22 +497,40 @@ class SectionService:
                 document_id=document_id,
                 project_id=project_id,
                 title=section_data["title"],
-                content=section_data["content"],
+                content=section_data.get("content", ""),
                 level=section_data.get("level", 1),
                 order=index + 1,
-                module=section_data.get(
-                    "module",
-                    "general",
-                ),
+                module=section_data.get("module", "general"),
             )
 
             sections.append(section)
 
-        return self.repository.create_many(
+        # Créer d'abord les sections
+        created_sections = self.repository.create_many(
             db,
             sections,
         )
 
+        # Créer les DocumentBlocks liés aux sections
+        for section, section_data in zip(
+            created_sections,
+            sections_data,
+        ):
+
+            for block_data in section_data.get("blocks", []):
+
+                block = DocumentBlock(
+                    section_id=section.id,
+                    type=block_data["type"],
+                    content_xml=block_data["content_xml"],
+                    order_index=block_data["order_index"],
+                )
+
+                db.add(block)
+
+        db.commit()
+
+        return created_sections
     # ======================================================
     # ASSIGN SECTION
     # ======================================================

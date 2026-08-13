@@ -84,6 +84,13 @@ class DocumentService:
         sections = analyzer.analyze(
             absolute_path
         )
+        
+        print("SECTIONS ANALYZER:", len(sections))
+        print(
+                "BLOCKS ANALYZER:",
+                sum(len(s.get("blocks", [])) for s in sections)
+            )
+        
 
         # ======================================================
         # CREATE SECTIONS
