@@ -23,7 +23,8 @@ from app.services.notifications_service import NotificationService
 
 from app.enums.notification_level import NotificationLevel
 from app.enums.notification_type import NotificationType
-
+from app.services.audit_log_service import AuditLogService
+from app.enums.audit_action import AuditAction
 
 class DocumentService:
     """
@@ -67,6 +68,15 @@ class DocumentService:
         created_document = self.repository.create_document(
             db,
             document,
+        )
+
+        audit_log_service = AuditLogService()
+
+        audit_log_service.log_action(
+            db=db,
+            user_id=owner_id,
+            action=AuditAction.CREATE,
+            target=f"document:{created_document.id}",
         )
 
         # ======================================================
@@ -201,12 +211,24 @@ class DocumentService:
         self,
         db: Session,
         document_id: int,
+        user_id: int,
     ) -> Document | None:
 
-        return self.repository.get_document_by_id(
+        document = self.repository.get_document_by_id(
             db,
             document_id,
         )
+
+        if document is None:
+            return None
+
+        PermissionService.get_project_member(
+            db,
+            document.project_id,
+            user_id,
+        )
+
+        return document
 
     # ==========================================================
     # GET PROJECT DOCUMENTS
@@ -314,6 +336,15 @@ class DocumentService:
                 updates,
             )
 
+            audit_log_service = AuditLogService()
+
+            audit_log_service.log_action(
+                db=db,
+                user_id=user_id,
+                action=AuditAction.UPDATE,
+                target=f"document:{updated_document.id}",
+            )
+
             # ==================================================
             # NOTIFY ALL PROJECT MEMBERS
             # ==================================================
@@ -418,6 +449,16 @@ class DocumentService:
             document,
         )
 
+
+        audit_log_service = AuditLogService()
+
+        audit_log_service.log_action(
+            db=db,
+            user_id=user_id,
+            action=AuditAction.DELETE,
+            target=f"document:{document_id}",
+        )
+
         # ======================================================
         # NOTIFY ALL PROJECT MEMBERS
         # ======================================================
@@ -503,6 +544,17 @@ class DocumentService:
             lock,
         )
 
+
+        audit_log_service = AuditLogService()
+
+        audit_log_service.log_action(
+            db=db,
+            user_id=user_id,
+            action=AuditAction.LOCK,
+            target=f"document:{document_id}",
+        )
+
+
         # ======================================================
         # NOTIFY LOCK OWNER
         # ======================================================
@@ -549,6 +601,7 @@ class DocumentService:
                 db,
                 lock,
             )
+
 
     # ==========================================================
     # LOCK DOCUMENT
@@ -598,4 +651,13 @@ class DocumentService:
         self.lock_repository.delete(
             db,
             lock,
+        )
+
+        audit_log_service = AuditLogService()
+
+        audit_log_service.log_action(
+            db=db,
+            user_id=user_id,
+            action=AuditAction.UNLOCK,
+            target=f"document:{document_id}",
         )

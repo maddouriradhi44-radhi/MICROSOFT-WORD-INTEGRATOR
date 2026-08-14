@@ -28,9 +28,12 @@ from app.services.email_service import EmailService
 from app.services.notifications_service import NotificationService
 from app.enums.notification_type import NotificationType
 from app.enums.notification_level import NotificationLevel
+from app.services.audit_log_service import AuditLogService
+from app.enums.audit_action import AuditAction
+
 
 notification_service = NotificationService()
-
+audit_log_service = AuditLogService()
 
 class AuthService:
     """
@@ -97,6 +100,13 @@ class AuthService:
             level=NotificationLevel.SUCCESS,
         )
 
+        audit_log_service.log_action(
+            db=db,
+            user_id=created_user.id,
+            action=AuditAction.CREATE,
+            target=f"user:{created_user.id}",
+        )
+
         return UserResponse.model_validate(created_user)
     @staticmethod
     def login(
@@ -157,6 +167,13 @@ class AuthService:
             message="You have successfully logged in to your account.",
             notification_type=NotificationType.SECURITY,
             level=NotificationLevel.INFO,
+        )
+
+        audit_log_service.log_action(
+            db=db,
+            user_id=user.id,
+            action=AuditAction.LOGIN,
+            target=f"user:{user.id}",
         )
 
         return Token(
@@ -230,6 +247,14 @@ class AuthService:
             notification_type=NotificationType.SECURITY,
             level=NotificationLevel.SUCCESS,
         )
+
+        audit_log_service.log_action(
+            db=db,
+            user_id=user.id,
+            action=AuditAction.VERIFY_EMAIL,
+            target=f"user:{user.id}",
+        )
+
 
         return {
             "message": "Email verified successfully."
@@ -338,6 +363,47 @@ class AuthService:
             "message": "Password successfully changed"
         }
 
-    
+    @staticmethod
+    def logout(
+        db: Session,
+        user: User,
+    ) -> dict:
+        """
+        Logout the authenticated user and record the action
+        in the audit log.
+        """
 
-    
+        audit_log_service.log_action(
+            db=db,
+            user_id=user.id,
+            action=AuditAction.LOGOUT,
+            target=f"user:{user.id}",
+        )
+
+        return {
+            "message": "Logout successful."
+        }
+
+
+    @staticmethod
+    def logout(
+        db: Session,
+        user: User,
+    ) -> dict:
+        """
+        Logout the current user.
+        """
+
+        audit_log_service.log_action(
+            db=db,
+            user_id=user.id,
+            action=AuditAction.LOGOUT,
+            target=f"user:{user.id}",
+        )
+
+        return {
+            "message": "Logout successful."
+        }
+            
+
+        

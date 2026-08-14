@@ -14,6 +14,7 @@ class AuditAction(str, Enum):
     UPDATE = "update"
     DELETE = "delete"
     LOGIN = "login"
+    VERIFY_EMAIL = "verify_email"
     LOGOUT = "logout"
     VALIDATE = "validate"
     REJECT = "reject"

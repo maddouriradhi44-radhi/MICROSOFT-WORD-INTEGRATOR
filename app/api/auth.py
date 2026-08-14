@@ -78,6 +78,20 @@ def login(
         db,
         credentials
     )
+
+
+#LOGOUT
+
+@router.post("/logout")
+def logout(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return AuthService.logout(
+        db=db,
+        user=current_user,
+    )
+
  
 # CURRENT USER
  

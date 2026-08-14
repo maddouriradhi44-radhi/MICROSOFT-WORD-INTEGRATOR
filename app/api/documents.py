@@ -19,6 +19,8 @@ from app.schemas.document_schema import (
     DocumentResponse,
 )
 from app.services.storage_service import StorageService
+from app.dependencies.auth_dependency import get_current_user
+from app.models.user import User
 
 
 router = APIRouter(
@@ -76,6 +78,7 @@ def create_document(
 def get_document(
     document_id: int,
     db: Session = Depends(get_db),
+     current_user: User = Depends(get_current_user),
 ):
     document = document_service.get_document_by_id(
         db,
@@ -98,6 +101,7 @@ def get_document(
 def get_project_documents(
     project_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     return document_service.get_project_documents(
         db,

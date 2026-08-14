@@ -36,7 +36,8 @@ from app.enums.notification_level import NotificationLevel
 from app.enums.notification_type import NotificationType
 
 from app.services.notifications_service import NotificationService
-
+from app.services.audit_log_service import AuditLogService
+from app.enums.audit_action import AuditAction
 
 class ProjectMemberService:
     """
@@ -48,13 +49,13 @@ class ProjectMemberService:
     # ADD MEMBER
     # ==========================================================
 
-    @staticmethod
     def add_member(
         db: Session,
         project_id: int,
         email: str,
         role: ProjectRole,
-        ) -> ProjectMember:
+        user_id: int,
+    ) -> ProjectMember:
         """
         Add a user to a project.
         """
@@ -100,6 +101,15 @@ class ProjectMemberService:
         member = ProjectMemberRepository.create(
             db,
             member,
+        )
+
+        audit_log_service = AuditLogService()
+
+        audit_log_service.log_action(
+            db=db,
+            user_id=user_id,
+            action=AuditAction.CREATE,
+            target=f"project_member:{user.id}",
         )
 
         # Notify the added member
@@ -162,7 +172,8 @@ class ProjectMemberService:
         project_id: int,
         user_id: int,
         new_role: ProjectRole,
-        ) -> ProjectMember:
+        actor_user_id: int,
+    ) -> ProjectMember:
         """
         Update member role inside project.
         """
@@ -181,6 +192,15 @@ class ProjectMemberService:
             db,
             member,
             new_role,
+        )
+
+        audit_log_service = AuditLogService()
+
+        audit_log_service.log_action(
+            db=db,
+            user_id=actor_user_id,
+            action=AuditAction.UPDATE,
+            target=f"project_member:{user_id}",
         )
 
         # Get project information
@@ -217,6 +237,7 @@ class ProjectMemberService:
         db: Session,
         project_id: int,
         user_id: int,
+        actor_user_id: int,
     ) -> None:
         """
         Remove a member from a project.
@@ -261,6 +282,15 @@ class ProjectMemberService:
         ProjectMemberRepository.delete(
             db,
             member,
+        )
+
+        audit_log_service = AuditLogService()
+
+        audit_log_service.log_action(
+            db=db,
+            user_id=actor_user_id,
+            action=AuditAction.DELETE,
+            target=f"project_member:{user_id}",
         )
 
         # Notify the removed user

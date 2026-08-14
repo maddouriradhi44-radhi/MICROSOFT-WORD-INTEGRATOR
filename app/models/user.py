@@ -169,8 +169,7 @@ class User(Base):
 
     # Audit log entries created by this user
     audit_logs: Mapped[list["AuditLog"]] = relationship(
-        back_populates="user",
-        cascade="all, delete-orphan",
+    back_populates="user",
     )
 
     document_lock_queue: Mapped[list["DocumentLockQueue"]] = relationship(

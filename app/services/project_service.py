@@ -24,6 +24,10 @@ from app.exceptions.user import UserNotFoundException
 from app.services.notifications_service import NotificationService
 
 from app.enums.project_status import ProjectStatus
+from app.services.audit_log_service import AuditLogService
+from app.enums.audit_action import AuditAction
+
+
 
 class ProjectService:
     """
@@ -67,6 +71,15 @@ class ProjectService:
             db,
             project,
         )
+
+        audit_log_service = AuditLogService()
+
+        audit_log_service.log_action(
+            db=db,
+            user_id=owner_id,
+            action=AuditAction.CREATE,
+            target=f"project:{project.id}",
+)
 
         # Add owner as project manager
 
@@ -137,6 +150,7 @@ class ProjectService:
     def update_project(
         db: Session,
         project_id: int,
+        user_id: int,
         name: str | None = None,
         description: str | None = None,
         status: ProjectStatus | None = None,
@@ -177,6 +191,15 @@ class ProjectService:
             project,
         )
 
+        audit_log_service = AuditLogService()
+
+        audit_log_service.log_action(
+            db=db,
+            user_id=user_id,
+            action=AuditAction.UPDATE,
+            target=f"project:{project.id}",
+        )
+
         # Notify all project members
         notification_service = NotificationService()
 
@@ -203,6 +226,7 @@ class ProjectService:
     def delete_project(
         db: Session,
         project_id: int,
+        user_id: int,
     ) -> None:
         """
         Delete a project and notify all its members.
@@ -244,6 +268,17 @@ class ProjectService:
                 entity_id=project_id,
             )
 
+
+        audit_log_service = AuditLogService()
+
+        audit_log_service.log_action(
+            db=db,
+            user_id=user_id,
+            action=AuditAction.DELETE,
+            target=f"project:{project.id}",
+        )
+
+        
         # Delete the project
         ProjectRepository.delete(
             db,

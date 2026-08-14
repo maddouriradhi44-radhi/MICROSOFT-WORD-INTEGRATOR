@@ -108,6 +108,7 @@ def update_project(
     return ProjectService.update_project(
         db=db,
         project_id=project_id,
+        user_id=current_user.id,
         name=data.name,
         description=data.description,
         status=data.status,
@@ -138,6 +139,7 @@ def delete_project(
     ProjectService.delete_project(
         db=db,
         project_id=project_id,
+        user_id=current_user.id,
     )
 
 
@@ -167,6 +169,7 @@ def add_member(
         project_id=project_id,
         email=data.email,
         role=data.role,
+        user_id=current_user.id,
     )
 
 
@@ -215,8 +218,8 @@ def update_member_role(
         project_id=project_id,
         user_id=user_id,
         new_role=data.role,
+        actor_user_id=current_user.id,
     )
-
 
 @router.delete(
     "/{project_id}/members/{user_id}",
@@ -245,6 +248,7 @@ def remove_member(
             db=db,
             project_id=project_id,
             user_id=user_id,
+            actor_user_id=current_user.id,
         )
     except LastProjectManagerException as exc:
         raise HTTPException(
