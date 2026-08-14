@@ -8,6 +8,7 @@ from app.api import documents
 from app.api import sections
 from app.api import versions
 from app.api import comment
+from app.api.validation import router as validation_router
 from app.api.document_lock_queue import (
     router as document_lock_queue_router,
 )
@@ -60,6 +61,7 @@ app.include_router(comment.router)
 app.include_router(notification_router)
 app.include_router(audit.router)
 register_exception_handlers(app)
+app.include_router(validation_router)
 
 
 
