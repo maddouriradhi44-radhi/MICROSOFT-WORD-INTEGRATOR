@@ -129,4 +129,34 @@ class PermissionService:
         raise PermissionDeniedException()
 
 
+    @staticmethod
+    def check_section_access(
+        db: Session,
+        section: Section,
+        user_id: int,
+    ) -> bool:
+        """
+        Check if a user can access a section.
+
+        Rules:
+        - PROJECT_MANAGER -> access to all sections.
+        - COLLABORATOR -> access to project sections.
+        - READER -> access to project sections.
+        - Non-project members -> denied.
+        """
+
+        member = PermissionService.get_project_member(
+            db,
+            section.project_id,
+            user_id,
+        )
+
+        if member.role in (
+            ProjectRole.PROJECT_MANAGER,
+            ProjectRole.COLLABORATOR,
+        ):
+            return True
+
+        raise PermissionDeniedException()
+
     

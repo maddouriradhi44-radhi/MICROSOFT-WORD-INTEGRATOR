@@ -14,6 +14,7 @@ from app.repositories.version_repository import (
 )
 
 from app.repositories.section_repository import SectionRepository
+from app.services.permission_service import PermissionService
 from app.repositories.project_member_repository import ProjectMemberRepository
 
 from app.enums.version_change import VersionChangeType
@@ -44,6 +45,21 @@ class VersionService:
         change_comment: str | None = None,
         change_type: VersionChangeType = VersionChangeType.UPDATE,
     ) -> Version:
+
+
+        section = self.section_repository.get_section_by_id(
+            db,
+            section_id,
+        )
+
+        if section is None:
+            return None
+
+        PermissionService.check_section_editor(
+            db,
+            section,
+            author_id,
+        )
 
         latest_number = (
             self.repository.get_latest_version_number(
@@ -145,10 +161,22 @@ class VersionService:
         self,
         db: Session,
         section_id: int,
+        user_id: int,
     ) -> list[Version]:
-        """
-        Retrieve all versions of a section.
-        """
+
+        section = self.section_repository.get_section_by_id(
+            db,
+            section_id,
+        )
+
+        if section is None:
+            return []
+
+        PermissionService.check_section_access(
+            db,
+            section,
+            user_id,
+        )
 
         return self.repository.get_section_versions(
             db,
@@ -161,10 +189,25 @@ class VersionService:
         self,
         db: Session,
         section_id: int,
+        user_id: int,
     ) -> Version | None:
         """
         Retrieve the current active version.
         """
+
+        section = self.section_repository.get_section_by_id(
+            db,
+            section_id,
+        )
+
+        if section is None:
+            return None
+
+        PermissionService.check_section_access(
+            db,
+            section,
+            user_id,
+        )
 
         return self.repository.get_current_version(
             db,
@@ -193,10 +236,22 @@ class VersionService:
             )
         )
 
-
         if old_version is None:
             return None
 
+        section = self.section_repository.get_section_by_id(
+            db,
+            old_version.section_id,
+        )
+
+        if section is None:
+            return None
+
+        PermissionService.check_section_editor(
+            db,
+            section,
+            author_id,
+        )
 
         return self.create_new_version(
             db,
@@ -225,6 +280,20 @@ class VersionService:
         if version is None:
             return None
 
+        section = self.section_repository.get_section_by_id(
+            db,
+            version.section_id,
+        )
+
+        if section is None:
+            return None
+
+        PermissionService.check_project_manager(
+            db,
+            section.project_id,
+            user_id,
+        )
+
         version.is_archived = True
         version.is_current = False
 
@@ -235,66 +304,59 @@ class VersionService:
         # NOTIFICATION
         # ==================================================
 
-        section = self.section_repository.get_section_by_id(
-            db,
-            version.section_id,
+        project_manager = (
+            ProjectMemberRepository.get_project_manager(
+                db,
+                section.project_id,
+            )
         )
 
-        if section is not None:
+        notification_users = set()
 
-            project_manager = (
-                ProjectMemberRepository.get_project_manager(
-                    db,
-                    section.project_id,
-                )
+        # ----------------------------------------------
+        # Project Manager
+        # ----------------------------------------------
+
+        if (
+            project_manager is not None
+            and project_manager.user_id != user_id
+        ):
+            notification_users.add(
+                project_manager.user_id
             )
 
-            notification_users = set()
+        # ----------------------------------------------
+        # Assigned Collaborator
+        # ----------------------------------------------
 
-            # ----------------------------------------------
-            # Project Manager
-            # ----------------------------------------------
+        if (
+            section.assigned_user_id is not None
+            and section.assigned_user_id != user_id
+        ):
+            notification_users.add(
+                section.assigned_user_id
+            )
 
-            if (
-                project_manager is not None
-                and project_manager.user_id != user_id
-            ):
-                notification_users.add(
-                    project_manager.user_id
-                )
+        # ----------------------------------------------
+        # Send notifications
+        # ----------------------------------------------
 
-            # ----------------------------------------------
-            # Assigned Collaborator
-            # ----------------------------------------------
+        for recipient_id in notification_users:
 
-            if (
-                section.assigned_user_id is not None
-                and section.assigned_user_id != user_id
-            ):
-                notification_users.add(
-                    section.assigned_user_id
-                )
-
-            # ----------------------------------------------
-            # Send notifications
-            # ----------------------------------------------
-
-            for recipient_id in notification_users:
-
-                self.notification_service.create_notification(
-                    db=db,
-                    user_id=recipient_id,
-                    title="Version Archived",
-                    message=(
-                        f'Version v{version.version_number} '
-                        f'of the section "{section.title}" '
-                        f'has been archived.'
-                    ),
-                    notification_type=NotificationType.VERSION,
-                    level=NotificationLevel.INFO,
-                    entity_type="version",
-                    entity_id=version.id,
-                )
+            self.notification_service.create_notification(
+                db=db,
+                user_id=recipient_id,
+                title="Version Archived",
+                message=(
+                    f'Version v{version.version_number} '
+                    f'of the section "{section.title}" '
+                    f'has been archived.'
+                ),
+                notification_type=NotificationType.VERSION,
+                level=NotificationLevel.INFO,
+                entity_type="version",
+                entity_id=version.id,
+            )
 
         return version
 
@@ -302,10 +364,22 @@ class VersionService:
         self,
         db: Session,
         section_id: int,
+        user_id: int,
     ) -> list[Version]:
-        """
-        Retrieve archived versions of a section.
-        """
+
+        section = self.section_repository.get_section_by_id(
+            db,
+            section_id,
+        )
+
+        if section is None:
+            return []
+
+        PermissionService.check_section_access(
+            db,
+            section,
+            user_id,
+        )
 
         return self.repository.get_archived_versions(
             db,

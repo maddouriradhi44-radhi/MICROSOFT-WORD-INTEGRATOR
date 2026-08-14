@@ -81,6 +81,7 @@ def get_section_history(
     versions = version_service.get_history(
         db,
         section_id,
+        current_user.id,
     )
 
     return {
@@ -103,6 +104,7 @@ def get_archived_versions(
     versions = version_service.get_archived_versions(
         db,
         section_id,
+        current_user.id,
     )
 
     return {
@@ -127,6 +129,7 @@ def get_current_version(
     version = version_service.get_current_version(
         db,
         section_id,
+        current_user.id,
     )
 
 
