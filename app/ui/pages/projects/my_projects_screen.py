@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QScrollArea,
 )
-
+from app.ui.pages.projects.dashboard_screen import DashboardScreen
 from app.ui.models.project import Project
 from app.ui.services.project_service import project_service
 

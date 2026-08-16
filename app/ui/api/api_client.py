@@ -1,8 +1,5 @@
 import requests
-
 from app.ui.utils.config import API_BASE_URL
-
-
 class APIClient:
 
     def __init__(self, base_url=API_BASE_URL, timeout=5):
