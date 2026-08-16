@@ -115,3 +115,25 @@ class DocumentBlockRepository:
         db.commit()
 
         return True
+
+
+    def delete_section_blocks(
+        self,
+        db: Session,
+        section_id: int,
+    ) -> None:
+        """
+        Delete all document blocks belonging to a section.
+        """
+
+        (
+            db.query(DocumentBlock)
+            .filter(
+                DocumentBlock.section_id == section_id
+            )
+            .delete(
+                synchronize_session=False
+            )
+        )
+
+        db.flush()

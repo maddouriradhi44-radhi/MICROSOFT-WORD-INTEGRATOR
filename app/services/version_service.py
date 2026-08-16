@@ -44,6 +44,8 @@ class VersionService:
         content_snapshot: str,
         change_comment: str | None = None,
         change_type: VersionChangeType = VersionChangeType.UPDATE,
+        make_current: bool = True,
+         storage_key: str | None = None,
     ) -> Version:
 
 
@@ -75,7 +77,7 @@ class VersionService:
             )
         )
 
-        if current_version:
+        if current_version and make_current:
             current_version.is_current = False
 
         version = Version(
@@ -86,7 +88,8 @@ class VersionService:
             content_snapshot=content_snapshot,
             change_comment=change_comment,
             change_type=change_type,
-            is_current=True,
+            is_current=make_current,
+            storage_key=storage_key,
         )
 
         if current_version:

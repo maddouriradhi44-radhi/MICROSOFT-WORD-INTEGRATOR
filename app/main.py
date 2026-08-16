@@ -52,7 +52,6 @@ app = FastAPI(
 
 app.include_router(auth.router)
 app.include_router(projects.router)
-app.include_router(documents.router)
 app.include_router(sections.router)
 app.include_router(document_lock_queue_router)
 app.include_router(document_block_router)
@@ -62,6 +61,7 @@ app.include_router(notification_router)
 app.include_router(audit.router)
 register_exception_handlers(app)
 app.include_router(validation_router)
+app.include_router(documents.router)
 
 
 

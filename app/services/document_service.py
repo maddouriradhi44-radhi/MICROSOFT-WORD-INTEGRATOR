@@ -96,9 +96,13 @@ class DocumentService:
         )
         
         print("SECTIONS ANALYZER:", len(sections))
-        print(
-                "BLOCKS ANALYZER:",
-                sum(len(s.get("blocks", [])) for s in sections)
+
+        for i, section in enumerate(sections):
+            print(
+                f"SECTION {i}:",
+                section.get("title"),
+                "| blocks:",
+                len(section.get("blocks", [])),
             )
         
 

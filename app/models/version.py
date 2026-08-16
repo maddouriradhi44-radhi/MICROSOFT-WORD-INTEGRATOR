@@ -70,6 +70,12 @@ class Version(Base):
         nullable=True
     )
 
+        # Storage key of the DOCX file used to create this version
+    storage_key: Mapped[str | None] = mapped_column(
+            String(500),
+            nullable=True
+        )
+
     # Indicates if this is the current active version
     is_current: Mapped[bool] = mapped_column(
         Boolean,

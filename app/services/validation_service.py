@@ -18,6 +18,15 @@ from app.enums.notification_type import NotificationType
 from app.enums.notification_level import NotificationLevel
 from app.services.audit_log_service import AuditLogService
 from app.enums.audit_action import AuditAction
+from app.enums.section_status import SectionStatus
+from app.repositories.version_repository import VersionRepository
+from app.repositories.section_repository import SectionRepository
+from app.models.document_block import DocumentBlock
+from app.repositories.document_block_repository import (
+    DocumentBlockRepository,
+)
+from app.services.storage_service import StorageService
+from app.services.docx_analyzer_service import DocxAnalyzerService
 
 
 class ValidationService:
@@ -26,6 +35,13 @@ class ValidationService:
     """
     notification_service = NotificationService()
     audit_service = AuditLogService()
+    version_repository = VersionRepository()
+    section_repository = SectionRepository()
+    document_block_repository = DocumentBlockRepository()
+    storage_service = StorageService()
+    analyzer_service = DocxAnalyzerService()
+
+
     @staticmethod
     def create_validation(
         db: Session,
@@ -144,6 +160,93 @@ class ValidationService:
         validation.validated_at = datetime.utcnow()
         validation.validated_by_ai = False
 
+        # ==================================================
+        # MAKE VERSION OFFICIAL
+        # ==================================================
+
+        version = validation.version
+
+        if version is None:
+            raise ValueError("Version not found")
+
+        current_version = (
+            ValidationService.version_repository.get_current_version(
+                db,
+                version.section_id,
+            )
+        )
+
+        if current_version is not None:
+            current_version.is_current = False
+
+        version.is_current = True
+
+        # ==================================================
+        # SECTION → VALIDATED
+        # ==================================================
+
+        section = (
+            ValidationService.section_repository.get_section_by_id(
+                db,
+                version.section_id,
+            )
+        )
+
+        # ==================================================
+        # UPDATE DOCUMENT BLOCKS FROM APPROVED DOCX
+        # ==================================================
+
+        if version.storage_key:
+            docx_path = (
+                ValidationService.storage_service.get_absolute_path(
+                    version.storage_key
+                )
+            )
+
+            if not docx_path.exists():
+                raise ValueError(
+                    "Approved DOCX file not found"
+                )
+
+            analyzed_sections = (
+                ValidationService.analyzer_service.analyze(
+                    str(docx_path)
+                )
+            )
+
+            analyzed_section = None
+
+            for analyzed in analyzed_sections:
+                if analyzed["title"] == version.title_snapshot:
+                    analyzed_section = analyzed
+                    break
+
+            if analyzed_section is None:
+                raise ValueError(
+                    "Approved section not found in DOCX"
+                )
+
+            ValidationService.document_block_repository.delete_section_blocks(
+                db,
+                version.section_id,
+            )
+
+            for block_data in analyzed_section["blocks"]:
+                block = DocumentBlock(
+                    section_id=version.section_id,
+                    type=block_data["type"],
+                    content_xml=block_data["content_xml"],
+                    order_index=block_data["order_index"],
+                )
+                db.add(block)
+
+            db.flush()
+
+        if section is not None:
+            section.title = version.title_snapshot
+            section.content = version.content_snapshot
+            section.status = SectionStatus.VALIDATED
+
         ValidationService.notification_service.notify_user(
             db=db,
             user_id=validation.version.author_id,
@@ -189,6 +292,22 @@ class ValidationService:
         validation.comment = comment
         validation.validated_at = datetime.utcnow()
         validation.validated_by_ai = False
+
+        # ==================================================
+        # SECTION → REJECTED
+        # ==================================================
+
+        version = validation.version
+
+        section = (
+            ValidationService.section_repository.get_section_by_id(
+                db,
+                version.section_id,
+            )
+        )
+
+        if section is not None:
+            section.status = SectionStatus.REJECTED
 
         validation = ValidationRepository.update(
             db,

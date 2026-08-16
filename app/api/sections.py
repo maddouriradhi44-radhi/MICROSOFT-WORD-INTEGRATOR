@@ -4,10 +4,20 @@ Section API.
 This module exposes endpoints
 for managing document sections.
 """
-
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    UploadFile,
+    File,
+)
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from fastapi.responses import FileResponse
+from pathlib import Path
+
+from app.services.export_service import ExportService
 
 from app.database.session import get_db
 
@@ -22,7 +32,7 @@ from app.schemas.section_schema import (
     SectionUpdate,
     SectionResponse,
 )
-
+from app.services.import_service import ImportService
 
 router = APIRouter(
     prefix="/sections",
@@ -31,8 +41,8 @@ router = APIRouter(
 
 
 section_service = SectionService()
-
-
+export_service = ExportService()
+import_service = ImportService()
 # ==========================================================
 # Create section
 # ==========================================================
@@ -71,6 +81,95 @@ def get_my_sections(
         current_user.id,
     )
 
+# ==========================================================
+# Export section
+# ==========================================================
+
+@router.get(
+    "/{section_id}/export",
+)
+def export_section(
+    section_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Export a single section as a DOCX file.
+    """
+
+    output_path = (
+        Path("storage")
+        / "exports"
+        / f"section_{section_id}_export.docx"
+    )
+
+    result = export_service.export_section(
+        db=db,
+        section_id=section_id,
+        user_id=current_user.id,
+        output_path=output_path,
+    )
+
+    return FileResponse(
+        path=result,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument"
+            ".wordprocessingml.document"
+        ),
+        filename=f"section_{section_id}.docx",
+    )
+
+# ==========================================================
+# IMPORT  section
+# ==========================================================
+
+
+@router.post(
+    "/{section_id}/import",
+)
+def import_section(
+    section_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Import an externally edited DOCX section.
+
+    The file is parsed and compared with the current section.
+    No new version is created at this stage.
+    """
+
+    if file.content_type != (
+        "application/vnd.openxmlformats-officedocument"
+        ".wordprocessingml.document"
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Only .docx files are allowed",
+        )
+
+    try:
+        result = import_service.import_section(
+            db=db,
+            section_id=section_id,
+            user_id=current_user.id,
+            file=file,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        )
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Section not found",
+        )
+
+    return result
 
 
 # ==========================================================

@@ -6,10 +6,15 @@ from fastapi import (
     File,
     Form,
 )
+from fastapi.responses import FileResponse
+
 from sqlalchemy.orm import Session
 
+from pathlib import Path
+
+from app.services.export_service import ExportService
+
 from app.database.session import get_db
-from app.dependencies.auth_dependency import get_current_user
 
 from app.models.user import User
 from app.services.document_service import DocumentService
@@ -20,7 +25,6 @@ from app.schemas.document_schema import (
 )
 from app.services.storage_service import StorageService
 from app.dependencies.auth_dependency import get_current_user
-from app.models.user import User
 
 
 router = APIRouter(
@@ -30,7 +34,7 @@ router = APIRouter(
 
 
 document_service = DocumentService()
-
+export_service = ExportService()
 
 @router.post(
     "/",
@@ -72,17 +76,49 @@ def create_document(
     )
 
 @router.get(
+    "/{document_id}/export",
+)
+def export_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    output_path = (
+        Path("storage")
+        / "exports"
+        / f"document_{document_id}_export.docx"
+    )
+
+    result = export_service.export_document(
+        db=db,
+        document_id=document_id,
+        user_id=current_user.id,
+        output_path=output_path,
+    )
+
+    return FileResponse(
+        path=result,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument"
+            ".wordprocessingml.document"
+        ),
+        filename=f"document_{document_id}.docx",
+    )
+
+@router.get(
     "/{document_id}",
     response_model=DocumentResponse,
 )
 def get_document(
     document_id: int,
     db: Session = Depends(get_db),
-     current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+
     document = document_service.get_document_by_id(
         db,
         document_id,
+        current_user.id,
     )
 
     if document is None:
