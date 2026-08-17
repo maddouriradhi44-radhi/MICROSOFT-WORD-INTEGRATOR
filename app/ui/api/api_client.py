@@ -73,4 +73,52 @@ class APIClient:
         )
 
 
+    def download(self, path):
+        url = f"{self.base_url}{path}"
+
+        return requests.get(
+            url,
+            headers={
+                "Authorization": f"Bearer {self.auth_token}"
+            } if self.auth_token else {},
+            timeout=self.timeout,
+        )
+
+    def get_file(self, path, params=None):
+        url = f"{self.base_url}{path}"
+
+        return requests.get(
+            url,
+            params=params,
+            headers=self._headers(),
+            timeout=self.timeout,
+        )
+
+    def post_file(self, path, file_path):
+        url = f"{self.base_url}{path}"
+
+        with open(file_path, "rb") as file:
+            return requests.post(
+                url,
+                files={
+                    "file": (
+                        file_path.split("\\")[-1],
+                        file,
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    )
+                },
+                headers={
+                    "Authorization": (
+                        f"Bearer {self.auth_token}"
+                        if self.auth_token
+                        else ""
+                    )
+                },
+                timeout=self.timeout,
+            )
+
+
 api_client = APIClient()
+
+
+    

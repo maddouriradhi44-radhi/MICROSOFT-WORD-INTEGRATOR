@@ -1,4 +1,9 @@
+import os
+import subprocess
+import tempfile
+
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -6,11 +11,11 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QFrame,
-    QTextEdit,
     QListWidget,
     QListWidgetItem,
     QDialog,
     QLineEdit,
+    QFileDialog,
 )
 
 from app.ui.services.section_service import section_service
@@ -228,8 +233,8 @@ class SectionWorkspaceScreen(QWidget):
 
     Responsibilities:
     - Display section information.
-    - Edit section content.
-    - Save section changes.
+    - Open section content in Microsoft Word.
+    - Import a modified Word document back into the platform.
     - Display version history.
     - Preview a selected version.
     - Restore a previous version.
@@ -435,12 +440,12 @@ class SectionWorkspaceScreen(QWidget):
         workspace_layout.setSpacing(15)
 
         # ======================================================
-        # CONTENT AREA
+        # MICROSOFT WORD WORKSPACE
         # ======================================================
 
-        content_container = QFrame()
+        word_container = QFrame()
 
-        content_container.setStyleSheet(
+        word_container.setStyleSheet(
             """
             QFrame {
                 background-color: white;
@@ -450,28 +455,26 @@ class SectionWorkspaceScreen(QWidget):
             """
         )
 
-        content_layout = QVBoxLayout(
-            content_container
+        word_layout = QVBoxLayout(word_container)
+
+        word_layout.setContentsMargins(
+            30,
+            30,
+            30,
+            30,
         )
 
-        content_layout.setContentsMargins(
-            15,
-            15,
-            15,
-            15,
+        word_layout.setSpacing(16)
+
+        word_title = QLabel(
+            "Modifier cette section dans Microsoft Word"
         )
 
-        content_layout.setSpacing(10)
-
-        content_label = QLabel(
-            "Section Content"
-        )
-
-        content_label.setStyleSheet(
+        word_title.setStyleSheet(
             """
             QLabel {
                 color: #14171F;
-                font-size: 14px;
+                font-size: 18px;
                 font-weight: 700;
                 border: none;
                 background-color: transparent;
@@ -479,71 +482,48 @@ class SectionWorkspaceScreen(QWidget):
             """
         )
 
-        content_layout.addWidget(content_label)
+        word_layout.addWidget(word_title)
 
-        self.content_editor = QTextEdit()
-
-        section_content = (
-            self.section.content
-            if self.section is not None
-            else ""
+        word_description = QLabel(
+            "La section sera exportée dans un document Word. "
+            "Effectuez vos modifications directement dans Microsoft Word, "
+            "puis réimportez le document modifié dans la plateforme."
         )
 
-        self.content_editor.setPlainText(
-            section_content
-        )
+        word_description.setWordWrap(True)
 
-        self.content_editor.setPlaceholderText(
-            "Section content..."
-        )
-
-        self.content_editor.setStyleSheet(
+        word_description.setStyleSheet(
             """
-            QTextEdit {
-                color: #374151;
-                font-size: 13px;
-                padding: 12px;
-                background-color: white;
-                border: 1px solid #E5E7EB;
-                border-radius: 8px;
-            }
-
-            QTextEdit:focus {
-                border: 1px solid #3E63DD;
+            QLabel {
+                color: #6B7280;
+                font-size: 12px;
+                border: none;
+                background-color: transparent;
             }
             """
         )
 
-        content_layout.addWidget(
-            self.content_editor,
-            1,
+        word_layout.addWidget(word_description)
+
+        word_layout.addStretch()
+
+        self.modify_word_button = QPushButton(
+            "Modifier dans Microsoft Word"
         )
 
-        # ======================================================
-        # SAVE BUTTON
-        # ======================================================
-
-        buttons_layout = QHBoxLayout()
-
-        buttons_layout.addStretch()
-
-        self.save_button = QPushButton(
-            "Save Changes"
-        )
-
-        self.save_button.setCursor(
+        self.modify_word_button.setCursor(
             Qt.PointingHandCursor
         )
 
-        self.save_button.setStyleSheet(
+        self.modify_word_button.setStyleSheet(
             """
             QPushButton {
                 color: white;
                 background-color: #3E63DD;
                 border: none;
                 border-radius: 7px;
-                padding: 9px 18px;
-                font-size: 12px;
+                padding: 12px 20px;
+                font-size: 13px;
                 font-weight: 600;
             }
 
@@ -557,20 +537,55 @@ class SectionWorkspaceScreen(QWidget):
             """
         )
 
-        self.save_button.clicked.connect(
-            self._save_changes
+        self.modify_word_button.clicked.connect(
+            self._modify_in_word
         )
 
-        buttons_layout.addWidget(
-            self.save_button
+        word_layout.addWidget(
+            self.modify_word_button
         )
 
-        content_layout.addLayout(
-            buttons_layout
+        self.import_word_button = QPushButton(
+            "Importer le document modifié"
+        )
+
+        self.import_word_button.setCursor(
+            Qt.PointingHandCursor
+        )
+
+        self.import_word_button.setStyleSheet(
+            """
+            QPushButton {
+                color: #3E63DD;
+                background-color: white;
+                border: 1px solid #3E63DD;
+                border-radius: 7px;
+                padding: 12px 20px;
+                font-size: 13px;
+                font-weight: 600;
+            }
+
+            QPushButton:hover {
+                background-color: #E8F0FE;
+            }
+
+            QPushButton:disabled {
+                color: #9CA3AF;
+                border-color: #D1D5DB;
+            }
+            """
+        )
+
+        self.import_word_button.clicked.connect(
+            self._import_from_word
+        )
+
+        word_layout.addWidget(
+            self.import_word_button
         )
 
         workspace_layout.addWidget(
-            content_container,
+            word_container,
             3,
         )
 
@@ -849,6 +864,165 @@ class SectionWorkspaceScreen(QWidget):
         )
 
     # ==========================================================
+    # OPEN SECTION IN MICROSOFT WORD
+    # ==========================================================
+
+    def _modify_in_word(self):
+        if self.section is None:
+            self._show_error(
+                "No section selected."
+            )
+            return
+
+        self.modify_word_button.setEnabled(False)
+        self.modify_word_button.setText(
+            "Préparation du document..."
+        )
+
+        try:
+            # --------------------------------------------------
+            # Export section from backend
+            # --------------------------------------------------
+
+            response = section_service.export_section(
+                self.section.id
+            )
+
+            # --------------------------------------------------
+            # Create temporary DOCX file
+            # --------------------------------------------------
+
+            temp_directory = tempfile.gettempdir()
+
+            file_path = os.path.join(
+                temp_directory,
+                f"section_{self.section.id}.docx",
+            )
+
+            with open(
+                file_path,
+                "wb",
+            ) as file:
+                file.write(
+                    response.content
+                )
+
+            # --------------------------------------------------
+            # Open Microsoft Word
+            # --------------------------------------------------
+
+            subprocess.Popen(
+                [
+                    "start",
+                    "",
+                    file_path,
+                ],
+                shell=True,
+            )
+
+            self._show_success(
+                "Le document a été ouvert dans Microsoft Word."
+            )
+
+        except Exception as error:
+            self._show_error(
+                str(error)
+            )
+
+        finally:
+            self.modify_word_button.setEnabled(True)
+            self.modify_word_button.setText(
+                "Modifier dans Microsoft Word"
+            )
+
+    # ==========================================================
+    # IMPORT MODIFIED SECTION FROM WORD
+    # ==========================================================
+
+    def _import_from_word(self):
+        if self.section is None:
+            self._show_error(
+                "No section selected."
+            )
+            return
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Sélectionner le document Word modifié",
+            "",
+            "Word Document (*.docx)",
+        )
+
+        if not file_path:
+            return
+
+        self.import_word_button.setEnabled(False)
+        self.import_word_button.setText(
+            "Importation..."
+        )
+
+        try:
+            result = section_service.import_section(
+                self.section.id,
+                file_path,
+            )
+
+            if not result:
+                raise Exception(
+                    "Unable to import the section."
+                )
+
+            changed = result.get(
+                "changed",
+                False,
+            )
+
+            if not changed:
+                self._show_info(
+                    "Aucune modification détectée."
+                )
+                return
+
+            self._show_success(
+                "Modification importée. "
+                "La section est maintenant en attente de validation."
+            )
+
+            # Update local section state
+            if "imported_title" in result:
+                self.section.title = result[
+                    "imported_title"
+                ]
+
+            if "imported_content" in result:
+                self.section.content = result[
+                    "imported_content"
+                ]
+
+            if "section_status" in result:
+                self.section.status = result[
+                    "section_status"
+                ]
+
+            self.section_title_label.setText(
+                self.section.title
+            )
+
+            # Reload version history
+            self._load_versions()
+
+        except Exception as error:
+            self._show_error(
+                str(error)
+            )
+
+        finally:
+            self.import_word_button.setEnabled(True)
+            self.import_word_button.setText(
+                "Importer le document modifié"
+            )
+
+    # ==========================================================
     # LOAD VERSIONS
     # ==========================================================
 
@@ -932,11 +1106,6 @@ class SectionWorkspaceScreen(QWidget):
 
         self.selected_version = selected_version
 
-        # Display selected version content
-        self.content_editor.setPlainText(
-            selected_version.content_snapshot
-        )
-
         # Current version cannot be restored
         self.restore_button.setEnabled(
             not selected_version.is_current
@@ -999,18 +1168,12 @@ class SectionWorkspaceScreen(QWidget):
                 )
 
             # --------------------------------------------------
-            # Update UI with restored content
+            # Update section reference with restored content
             # --------------------------------------------------
 
-            restored_content = (
+            self.section.content = (
                 restored_version.content_snapshot
             )
-
-            self.content_editor.setPlainText(
-                restored_content
-            )
-
-            self.section.content = restored_content
 
             # Keep the comment locally available if the
             # returned object exposes it.
@@ -1036,73 +1199,3 @@ class SectionWorkspaceScreen(QWidget):
 
         finally:
             self.restore_button.setEnabled(False)
-
-    # ==========================================================
-    # SAVE CHANGES
-    # ==========================================================
-
-    def _save_changes(self):
-        if self.section is None:
-            self._show_error(
-                "No section selected."
-            )
-            return
-
-        content = (
-            self.content_editor.toPlainText()
-        )
-
-        old_content = self.section.content
-
-        # Nothing changed
-        if content == old_content:
-            self._show_info(
-                "No changes to save."
-            )
-            return
-
-        self.save_button.setEnabled(False)
-        self.save_button.setText("Saving...")
-
-        try:
-            updated_section = (
-                section_service.update_section(
-                    section_id=self.section.id,
-                    content=content,
-                )
-            )
-
-            if updated_section is None:
-                raise Exception(
-                    "Unable to update the section."
-                )
-
-            self.section = updated_section
-
-            # --------------------------------------------------
-            # Create a version after successful modification
-            # --------------------------------------------------
-
-            version_service.create_version(
-                section_id=self.section.id,
-                title_snapshot=self.section.title,
-                content_snapshot=content,
-                change_comment="Section content updated",
-            )
-
-            self.content_editor.setPlainText(
-                updated_section.content
-            )
-
-            self._show_success(
-                "Section saved successfully."
-            )
-
-            self._load_versions()
-
-        except Exception as error:
-            self._show_error(str(error))
-
-        finally:
-            self.save_button.setEnabled(True)
-            self.save_button.setText("Save Changes")
