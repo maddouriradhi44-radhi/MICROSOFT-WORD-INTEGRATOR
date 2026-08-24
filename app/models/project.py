@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text , Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -63,6 +63,20 @@ class Project(Base):
     status: Mapped[ProjectStatus] = mapped_column(
         Enum(ProjectStatus, name="project_status"),
         default=ProjectStatus.ACTIVE,
+        nullable=False
+    )
+
+
+    # ==========================================================
+    # AI CONFIGURATION
+    # ==========================================================
+
+    # Indicates whether AI assistance is enabled for this project.
+    # If False, the Project Manager performs the section
+    # decomposition manually.
+    ai_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
         nullable=False
     )
 

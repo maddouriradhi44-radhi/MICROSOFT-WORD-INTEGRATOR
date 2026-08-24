@@ -38,6 +38,7 @@ class ProjectUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     status: ProjectStatus | None = None
+    ai_enabled: bool | None = None
 
 
 class ProjectResponse(BaseModel):
@@ -51,6 +52,7 @@ class ProjectResponse(BaseModel):
     status: ProjectStatus
     owner_id: int
     created_at:datetime
+    ai_enabled: bool 
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -68,6 +70,7 @@ class UserProjectResponse(BaseModel):
     owner_id: int
     created_at: datetime
     role: ProjectRole
+    ai_enabled: bool 
 
     model_config = ConfigDict(
         from_attributes=True

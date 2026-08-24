@@ -7,8 +7,10 @@ and preparing an AI-based analysis proposal.
 
 from __future__ import annotations
 
-from app.schemas.ai import AISectionProposal
-
+from app.schemas.ai import (
+    AISectionProposal,
+    AISubsectionProposal,
+)
 
 class AISectionAnalysisService:
     """
@@ -32,6 +34,7 @@ class AISectionAnalysisService:
         title = section.get("title", "")
         content = section.get("content", "")
         level = section.get("level", 1)
+        order = section.get("order", 1)
 
         keywords = self._extract_keywords(
             title=title,
@@ -58,6 +61,11 @@ class AISectionAnalysisService:
             "its title, content, structure and complexity."
         )
 
+        subsections = self._detect_subsections(
+            content=content,
+            parent_level=level,
+        )
+
         return AISectionProposal(
             title=title,
             level=level,
@@ -67,6 +75,8 @@ class AISectionAnalysisService:
             suggested_role=suggested_role,
             keywords=keywords,
             complexity=complexity,
+            subsections=subsections,
+            order=order,
         )
 
     # ==========================================================
@@ -204,3 +214,88 @@ class AISectionAnalysisService:
             confidence,
             1.0,
         )
+
+
+    # ==========================================================
+    # SUBSECTION DETECTION
+    # ==========================================================
+
+    def _detect_subsections(
+        self,
+        content: str,
+        parent_level: int,
+    ) -> list[AISubsectionProposal]:
+
+        import re
+
+        pattern = r"(?m)^\s*(\d+(?:\.\d+)*)[.)]\s+(.+)$"
+
+        matches = list(
+            re.finditer(pattern, content)
+        )
+
+        if len(matches) < 2:
+            return []
+
+        subsections = []
+
+        for index, match in enumerate(matches):
+
+            number = match.group(1)
+            title = match.group(2).strip()
+
+            start = match.end()
+
+            if index + 1 < len(matches):
+                end = matches[index + 1].start()
+            else:
+                end = len(content)
+
+            subsection_content = content[
+                start:end
+            ].strip()
+
+            level = (
+                parent_level
+                + number.count(".")
+                + 1
+            )
+
+            keywords = self._extract_keywords(
+                title=title,
+                content=subsection_content,
+            )
+
+            suggested_role = self._suggest_role(
+                title=title,
+                content=subsection_content,
+            )
+
+            complexity = self._estimate_complexity(
+                content=subsection_content,
+            )
+
+            confidence = self._calculate_confidence(
+                title=title,
+                content=subsection_content,
+                level=level,
+            )
+
+            subsections.append(
+                AISubsectionProposal(
+                    title=title,
+                    level=level,
+                    content=subsection_content,
+                    reason=(
+                        "The subsection was detected "
+                        "from the logical structure of "
+                        "the document."
+                    ),
+                    confidence=confidence,
+                    suggested_role=suggested_role,
+                    keywords=keywords,
+                    complexity=complexity,
+                )
+            )
+
+        return subsections

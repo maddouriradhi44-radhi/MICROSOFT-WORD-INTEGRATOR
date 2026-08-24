@@ -112,6 +112,7 @@ def update_project(
         name=data.name,
         description=data.description,
         status=data.status,
+        ai_enabled=data.ai_enabled,
     )
 
 
@@ -256,3 +257,26 @@ def remove_member(
             detail=str(exc),
         )
 
+
+
+@router.patch(
+    "/{project_id}/ai",
+    response_model=ProjectResponse,
+)
+def update_project_ai(
+    project_id: int,
+    enabled: bool,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    PermissionService.check_project_manager(
+        db=db,
+        project_id=project_id,
+        user_id=current_user.id,
+    )
+
+    return ProjectService.update_ai_enabled(
+        db=db,
+        project_id=project_id,
+        enabled=enabled,
+    )

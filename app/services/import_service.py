@@ -24,6 +24,8 @@ from app.services.version_service import VersionService
 from app.services.validation_service import ValidationService
 
 
+
+
 class ImportService:
     """
     Service responsible for importing externally edited DOCX files.
@@ -35,6 +37,7 @@ class ImportService:
         self.parser = DocxParser()
         self.comparison_service = WordComparisonService()
         self.version_service = VersionService()
+
 
     def import_section(
         self,
@@ -176,7 +179,7 @@ class ImportService:
 
         section.status = SectionStatus.PENDING_VALIDATION
 
-        # ==================================================
+                # ==================================================
         # CREATE VALIDATION
         # ==================================================
 
@@ -185,7 +188,12 @@ class ImportService:
             version_id=version.id,
         )
 
+        # ==================================================
+        # SAVE
+        # ==================================================
+
         db.commit()
+
         db.refresh(section)
         db.refresh(version)
         db.refresh(validation)

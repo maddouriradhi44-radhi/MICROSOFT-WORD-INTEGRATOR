@@ -69,6 +69,7 @@ class DocxAnalyzerService:
                         "title": text,
                         "content": "",
                         "level": level,
+                        "order": len(sections) + 1,
                         "blocks": [],
                     }
 
@@ -92,14 +93,14 @@ class DocxAnalyzerService:
 
                 if current_section is None:
 
-                    current_section = {
+                   current_section = {
                         "title": "Document Introduction",
                         "content": "",
                         "level": 1,
+                        "order": len(sections) + 1,
                         "blocks": [],
                     }
-
-                    order_index = 0.0
+                   order_index = 0.0
 
                 # --------------------------------------------------
                 # EMPTY PARAGRAPH
@@ -147,6 +148,7 @@ class DocxAnalyzerService:
                         "title": "Document Introduction",
                         "content": "",
                         "level": 1,
+                        "order": len(sections) + 1,
                         "blocks": [],
                     }
 
@@ -174,9 +176,9 @@ class DocxAnalyzerService:
                         "title": "Document Introduction",
                         "content": "",
                         "level": 1,
+                        "order": len(sections) + 1,
                         "blocks": [],
                     }
-
                     order_index = 0.0
 
                 current_section["blocks"].append(
@@ -196,7 +198,11 @@ class DocxAnalyzerService:
         # ======================================================
 
         if current_section is not None:
-            sections.append(current_section)
+            if (
+                current_section["content"].strip()
+                or current_section["blocks"]
+            ):
+                sections.append(current_section)
 
         return sections
 

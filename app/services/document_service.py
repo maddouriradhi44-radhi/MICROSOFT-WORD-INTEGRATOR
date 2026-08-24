@@ -3,12 +3,14 @@ from datetime import datetime, timedelta
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.models.project import Project
 from app.models.document import Document
 from app.models.document_lock import DocumentLock
 
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.document_lock_repository import DocumentLockRepository
 from app.repositories.project_member_repository import ProjectMemberRepository
+from app.repositories.project_repository import ProjectRepository
 
 from app.schemas.document_schema import (
     DocumentCreate,
@@ -25,6 +27,13 @@ from app.enums.notification_level import NotificationLevel
 from app.enums.notification_type import NotificationType
 from app.services.audit_log_service import AuditLogService
 from app.enums.audit_action import AuditAction
+from app.services.ai.ai_document_analyzer_service import (
+    AIDocumentAnalyzerService,
+)
+from app.services.ai.ai_section_proposal_service import (
+    AISectionProposalService,
+)
+
 
 class DocumentService:
     """
@@ -80,7 +89,7 @@ class DocumentService:
         )
 
         # ======================================================
-        # ANALYZE DOCUMENT
+        # ANALYZE DOCUMENT STRUCTURE
         # ======================================================
 
         storage_service = StorageService()
@@ -94,7 +103,71 @@ class DocumentService:
         sections = analyzer.analyze(
             absolute_path
         )
-        
+
+        # ======================================================
+        # CHECK PROJECT AI CONFIGURATION
+        # ======================================================
+
+        project = ProjectRepository.get_by_id(
+            db,
+            created_document.project_id,
+        )
+
+        if project is None:
+            raise ValueError(
+                f"Project {created_document.project_id} not found"
+            )
+
+        # ======================================================
+        # AI DOCUMENT ANALYSIS
+        # ======================================================
+
+        ai_proposal = None
+
+        if project.ai_enabled:
+
+            ai_analyzer = AIDocumentAnalyzerService()
+
+            ai_proposal = ai_analyzer.analyze_document(
+                document_title=created_document.title,
+                document_structure=sections,
+            )
+
+            print(
+                "AI DOCUMENT PROPOSAL:",
+                ai_proposal.document_title,
+            )
+
+            print(
+                "AI PROPOSED SECTIONS:",
+                len(ai_proposal.sections),
+            )
+
+            for index, proposal in enumerate(
+                ai_proposal.sections
+            ):
+                print(
+                    f"AI PROPOSAL {index}:",
+                    proposal.title,
+                    "| level:",
+                    proposal.level,
+                    "| confidence:",
+                    proposal.confidence,
+                    "| role:",
+                    proposal.suggested_role,
+                )
+
+        else:
+
+            print(
+                "AI DISABLED FOR PROJECT:",
+                project.id,
+            )
+
+            print(
+                "Manual section division is required."
+            )
+
         print("SECTIONS ANALYZER:", len(sections))
 
         for i, section in enumerate(sections):
@@ -104,20 +177,21 @@ class DocumentService:
                 "| blocks:",
                 len(section.get("blocks", [])),
             )
-        
 
         # ======================================================
-        # CREATE SECTIONS
+        # SAVE AI SECTION PROPOSALS
         # ======================================================
 
-        section_service = SectionService()
+        if ai_proposal is not None:
 
-        section_service.create_sections(
-            db,
-            created_document.id,
-            created_document.project_id,
-            sections,
-        )
+            ai_proposal_service = AISectionProposalService()
+
+            for proposal in ai_proposal.sections:
+                ai_proposal_service.create_proposal(
+                    db=db,
+                    document_id=created_document.id,
+                    proposal=proposal,
+                )
 
         # ======================================================
         # NOTIFY PROJECT MEMBERS
@@ -453,7 +527,6 @@ class DocumentService:
             document,
         )
 
-
         audit_log_service = AuditLogService()
 
         audit_log_service.log_action(
@@ -486,7 +559,6 @@ class DocumentService:
 
         return True
 
-    
     # ==========================================================
     # CREATE DOCUMENT LOCK
     # ==========================================================
@@ -548,7 +620,6 @@ class DocumentService:
             lock,
         )
 
-
         audit_log_service = AuditLogService()
 
         audit_log_service.log_action(
@@ -557,7 +628,6 @@ class DocumentService:
             action=AuditAction.LOCK,
             target=f"document:{document_id}",
         )
-
 
         # ======================================================
         # NOTIFY LOCK OWNER
@@ -605,7 +675,6 @@ class DocumentService:
                 db,
                 lock,
             )
-
 
     # ==========================================================
     # LOCK DOCUMENT

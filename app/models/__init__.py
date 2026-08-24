@@ -13,3 +13,5 @@ from app.models.document_lock_queue import DocumentLockQueue
 from app.models.document_block import DocumentBlock
 from app.models.section import Section
 from app.models.comment_mention import CommentMention
+from app.models.ai_section_proposal import AISectionProposal
+from app.models.ai_validation_report import AIValidationReport

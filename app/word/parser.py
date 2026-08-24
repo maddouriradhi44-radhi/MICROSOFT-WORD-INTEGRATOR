@@ -77,7 +77,40 @@ class DocxParser:
             and paragraphs[0].strip()
             == expected_title.strip()
         ):
+            title = paragraphs[0]
             content_paragraphs = paragraphs[1:]
+
+        # --------------------------------------------------
+        # If the expected title does not match the DOCX,
+        # look for a real Word Heading 1.
+        # --------------------------------------------------
+
+        elif expected_title and document.paragraphs:
+
+            heading_paragraph = None
+
+            for paragraph in document.paragraphs:
+
+                if (
+                    paragraph.text.strip()
+                    and paragraph.style
+                    and paragraph.style.name == "Heading 1"
+                ):
+                    heading_paragraph = paragraph
+                    break
+
+            if heading_paragraph is not None:
+
+                title = heading_paragraph.text.strip()
+
+                content_paragraphs = [
+                    paragraph.text.strip()
+                    for paragraph in document.paragraphs
+                    if (
+                        paragraph.text.strip()
+                        and paragraph.text.strip() != title
+                    )
+                ]
 
         # --------------------------------------------------
         # Legacy behavior when no expected title is supplied

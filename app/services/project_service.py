@@ -139,6 +139,7 @@ class ProjectService:
                 "owner_id": project.owner_id,
                 "created_at": project.created_at,
                 "role": member.role,
+                "ai_enabled": project.ai_enabled,
             }
             for project, member in results
         ]
@@ -154,6 +155,7 @@ class ProjectService:
         name: str | None = None,
         description: str | None = None,
         status: ProjectStatus | None = None,
+        ai_enabled: bool | None = None,
     ) -> Project:
         """
         Update project information
@@ -184,6 +186,9 @@ class ProjectService:
 
         if status is not None:
             project.status = status
+
+        if ai_enabled is not None:
+            project.ai_enabled = ai_enabled
 
         # Save the project
         project = ProjectRepository.update(
@@ -281,6 +286,27 @@ class ProjectService:
         
         # Delete the project
         ProjectRepository.delete(
+            db,
+            project,
+        )
+
+    @staticmethod
+    def update_ai_enabled(
+        db: Session,
+        project_id: int,
+        enabled: bool,
+    ) -> Project:
+        project = ProjectRepository.get_by_id(
+            db,
+            project_id,
+        )
+
+        if project is None:
+            raise ProjectNotFoundException(project_id)
+
+        project.ai_enabled = enabled
+
+        return ProjectRepository.update(
             db,
             project,
         )

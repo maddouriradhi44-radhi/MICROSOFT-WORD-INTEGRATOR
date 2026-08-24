@@ -19,6 +19,7 @@ from app.enums.validation_status import ValidationStatus
 if TYPE_CHECKING:
     from app.models.version import Version
     from app.models.user import User
+    from app.models.ai_validation_report import AIValidationReport
 
 
 class Validation(Base):
@@ -106,4 +107,10 @@ class Validation(Base):
     # User who reviewed this validation
     reviewer: Mapped[User | None] = relationship(
         back_populates="validations"
+    )
+
+    ai_report: Mapped[AIValidationReport | None] = relationship(
+        back_populates="validation",
+        uselist=False,
+        cascade="all, delete-orphan",
     )

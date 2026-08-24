@@ -13,6 +13,8 @@ from app.repositories.section_repository import (
     SectionRepository,
 )
 
+from app.repositories.document_repository import DocumentRepository
+
 from app.repositories.project_member_repository import (
     ProjectMemberRepository,
 )
@@ -121,6 +123,17 @@ class SectionService:
             section_data.project_id,
             user_id,
         )
+
+        document = DocumentRepository().get_document_by_id(
+            db,
+            section_data.document_id,
+        )
+
+        if document is None:
+            raise ValueError("Document not found")
+
+        if document.project_id != section_data.project_id:
+            raise PermissionDeniedException()
 
         section = Section(
             title=section_data.title,
@@ -659,4 +672,3 @@ class SectionService:
             )
 
         return updated_section
-

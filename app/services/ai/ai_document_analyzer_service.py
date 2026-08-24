@@ -1,267 +1,165 @@
 """
 AI document analyzer service.
 
-Responsible for analyzing the logical structure of a DOCX
-document and preparing an AI-based sectioning proposal.
+Responsible for analyzing the complete logical structure
+of a DOCX document and preparing an AI-based sectioning proposal.
 """
 
 from __future__ import annotations
 
-from app.schemas.ai import AISectionProposal
+from app.schemas.ai import (
+    AIDocumentProposal,
+    AISectionProposal,
+)
+
+from app.services.ai.ai_section_analysis_service import (
+    AISectionAnalysisService,
+)
 
 
 class AIDocumentAnalyzerService:
     """
     Service responsible for AI-based document analysis.
+
+    The AI analyzes the complete document structure and
+    proposes a logical decomposition into sections.
+
+    IMPORTANT:
+    This service only produces proposals.
+    It does not create database Section records.
     """
+
+    def __init__(self):
+        self.section_analysis_service = (
+            AISectionAnalysisService()
+        )
+
+    # ==========================================================
+    # DOCUMENT ANALYSIS
+    # ==========================================================
 
     def analyze_document(
         self,
-        sections: list[dict],
-    ) -> list[AISectionProposal]:
+        document_title: str,
+        document_structure: list[dict],
+    ) -> AIDocumentProposal:
         """
-        Analyze the detected document sections.
+        Analyze a complete DOCX document.
 
-        Args:
-            sections: Sections extracted by DocxAnalyzerService.
-
-        Returns:
-            A list of AI section proposals.
+        Existing DOCX sections are analyzed first.
+        Detected subsections are promoted to independent
+        section proposals.
         """
 
-        proposals: list[AISectionProposal] = []
+        sections: list[AISectionProposal] = []
 
-        for section in sections:
+        # ------------------------------------------------------
+        # ANALYZE DOCUMENT STRUCTURE
+        # ------------------------------------------------------
 
-            title = section.get(
-                "title",
-                "",
-            )
+        for structure_item in document_structure:
 
-            content = section.get(
-                "content",
-                "",
-            )
-
-            combined_text = (
-                f"{title} {content}"
-            ).lower()
-
-            suggested_role = (
-                self._suggest_role(
-                    combined_text
+            proposal = (
+                self.section_analysis_service.analyze_section(
+                    structure_item
                 )
             )
 
-            keywords = (
-                self._extract_keywords(
-                    combined_text
+            # --------------------------------------------------
+            # If subsections exist, promote them to sections
+            # --------------------------------------------------
+
+            if proposal.subsections:
+
+                # Parent section remains a valid proposal.
+                sections.append(
+                    proposal.model_copy(
+                        update={
+                            "subsections": [],
+                        }
+                    )
                 )
-            )
 
-            complexity = (
-                self._estimate_complexity(
-                    content
+                # Promote each subsection.
+                for subsection in proposal.subsections:
+
+                    sections.append(
+                        AISectionProposal(
+                            title=subsection.title,
+                            level=subsection.level,
+                            content=subsection.content,
+                            order=len(sections) + 1,
+                            reason=subsection.reason,
+                            confidence=subsection.confidence,
+                            category=subsection.category,
+                            suggested_role=subsection.suggested_role,
+                            keywords=subsection.keywords,
+                            complexity=subsection.complexity,
+                            subsections=[],
+                        )
+                    )
+
+            else:
+
+                sections.append(
+                    proposal
                 )
+
+        # ------------------------------------------------------
+        # Recalculate order
+        # ------------------------------------------------------
+
+        for index, section in enumerate(
+            sections,
+            start=1,
+        ):
+            sections[index - 1] = section.model_copy(
+                update={
+                    "order": index,
+                }
             )
 
-            proposal = AISectionProposal(
-                title=title,
-                level=section.get(
-                    "level",
-                    1,
-                ),
-                content=content,
-                reason=(
-                    "Section analyzed from its title "
-                    "and content."
-                ),
-                confidence=self._estimate_confidence(
-                    suggested_role=suggested_role,
-                    keywords=keywords,
-                ),
-                suggested_role=suggested_role,
-                keywords=keywords,
-                complexity=complexity,
-            )
+        # ------------------------------------------------------
+        # Calculate document confidence
+        # ------------------------------------------------------
 
-            proposals.append(proposal)
-
-        return proposals
-
-    # ==========================================================
-    # ROLE SUGGESTION
-    # ==========================================================
-
-    def _suggest_role(
-        self,
-        text: str,
-    ) -> str | None:
-        """
-        Suggest a project role according to the section content.
-        """
-
-        if any(
-            keyword in text
-            for keyword in [
-                "architecture",
-                "backend",
-                "api",
-                "database",
-                "base de données",
-                "technical",
-                "technique",
-                "software",
-            ]
-        ):
-            return "technical"
-
-        if any(
-            keyword in text
-            for keyword in [
-                "requirement",
-                "requirements",
-                "fonctionnalité",
-                "fonctionnalités",
-                "exigence",
-                "exigences",
-                "cahier des charges",
-            ]
-        ):
-            return "functional"
-
-        if any(
-            keyword in text
-            for keyword in [
-                "test",
-                "testing",
-                "validation",
-                "quality",
-                "qualité",
-            ]
-        ):
-            return "qa"
-
-        if any(
-            keyword in text
-            for keyword in [
-                "management",
-                "gestion",
-                "planning",
-                "project management",
-                "gestion de projet",
-                "milestone",
-                "milestones",
-                "ressource",
-                "ressources",
-                "schedule",
-                "planning projet",
-            ]
-        ):
-            return "management"
-
-        return None
-
-    # ==========================================================
-    # KEYWORDS
-    # ==========================================================
-
-    def _extract_keywords(
-        self,
-        text: str,
-    ) -> list[str]:
-        """
-        Extract a small set of meaningful keywords.
-        """
-
-        known_keywords = [
-            "architecture",
-            "api",
-            "backend",
-            "database",
-            "base de données",
-            "requirement",
-            "requirements",
-            "fonctionnalité",
-            "exigence",
-            "test",
-            "testing",
-            "validation",
-            "quality",
-            "qualité",
-            "management",
-            "gestion",
-            "planning",
-            "project management",
-            "gestion de projet",
-            "milestone",
-            "milestones",
-            "ressource",
-            "ressources",
-            "schedule",
-        ]
-
-        return [
-            keyword
-            for keyword in known_keywords
-            if keyword in text
-        ]
-
-    # ==========================================================
-    # COMPLEXITY
-    # ==========================================================
-
-    def _estimate_complexity(
-        self,
-        content: str,
-    ) -> str:
-        """
-        Estimate section complexity based on content size.
-
-        This is only a baseline before integration
-        with a real AI model.
-        """
-
-        word_count = len(
-            content.split()
+        confidence = self._calculate_document_confidence(
+            sections
         )
 
-        if word_count < 50:
-            return "low"
-
-        if word_count < 150:
-            return "medium"
-
-        return "high"
+        return AIDocumentProposal(
+            document_title=document_title,
+            sections=sections,
+            reason=(
+                "The document was analyzed according to "
+                "its structure, content, hierarchy and "
+                "logical organization."
+            ),
+            confidence=confidence,
+        )
 
     # ==========================================================
-    # CONFIDENCE
+    # DOCUMENT CONFIDENCE
     # ==========================================================
 
-    def _estimate_confidence(
+    def _calculate_document_confidence(
         self,
-        suggested_role: str | None,
-        keywords: list[str],
+        sections: list[AISectionProposal],
     ) -> float:
         """
-        Estimate the confidence of the section analysis.
-
-        This is a deterministic baseline before integration
-        with a real AI model.
+        Calculate an overall confidence score for the
+        document decomposition proposal.
         """
 
-        if suggested_role is None:
-            return 0.30
+        if not sections:
+            return 0.0
 
-        keyword_count = len(keywords)
+        total = sum(
+            section.confidence
+            for section in sections
+        )
 
-        if keyword_count >= 3:
-            return 0.90
-
-        if keyword_count == 2:
-            return 0.75
-
-        if keyword_count == 1:
-            return 0.60
-
-        return 0.40
+        return min(
+            total / len(sections),
+            1.0,
+        )
