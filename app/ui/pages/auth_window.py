@@ -4,12 +4,15 @@ from app.ui.pages.projects.my_projects_screen import MyProjectsScreen
 from app.ui.components.auth_widgets import BG_WINDOW
 
 from app.ui.pages.login_screen import LoginScreen
+
 from app.ui.pages.signup_screen import SignUpScreen
 from app.ui.pages.email_verification_screen import EmailVerificationScreen
 from app.ui.pages.forget_password_screen import ForgotPasswordScreen
 from app.ui.pages.reset_password_screen import ResetPasswordScreen
 
-from app.ui.pages.projects.dashboard_screen import DashboardScreen
+from app.ui.pages.projects.project_manager_dashboard_screen import (
+    ProjectManagerDashboardScreen
+)
 from app.ui.pages.projects.collaborator_dashboard_screen import (
     CollaboratorDashboardScreen
 )
@@ -22,6 +25,9 @@ from app.ui.pages.projects.my_sections_screen import (
 from app.ui.pages.projects.section_workspace_screen import (
     SectionWorkspaceScreen
 )
+from app.ui.pages.projects.ai_sections_screen import (
+    AISectionsScreen
+)
 
 
 class AuthWindow(QMainWindow):
@@ -33,12 +39,14 @@ class AuthWindow(QMainWindow):
 
         self.my_projects_screen = None
         self.dashboard_screen = None
+        self.project_manager_dashboard = None
         self.collaborator_dashboard = None
         self.notifications_screen = None
         self.current_user = None
 
         self.my_sections_screen = None
         self.section_workspace_screen = None
+        self.ai_sections_screen = None
 
         self.setWindowTitle("Microsoft Word Integrator")
         self.resize(480, 640)
@@ -122,8 +130,31 @@ class AuthWindow(QMainWindow):
 
         elif project.role == "PROJECT_MANAGER":
 
-            print(
-                "Manager Dashboard will be implemented later."
+            self.project_manager_dashboard = (
+                ProjectManagerDashboardScreen(
+                    project=project,
+                    user=self.current_user,
+                )
+            )
+
+            self.project_manager_dashboard.nav_requested.connect(
+                self._handle_project_manager_navigation
+            )
+
+            self.project_manager_dashboard.logout_requested.connect(
+                self._handle_project_manager_logout
+            )
+
+            self.project_manager_dashboard.settings_requested.connect(
+                self._handle_project_manager_settings
+            )
+
+            self.stack.addWidget(
+                self.project_manager_dashboard
+            )
+
+            self.stack.setCurrentWidget(
+                self.project_manager_dashboard
             )
 
         elif project.role == "READER":
@@ -395,6 +426,100 @@ class AuthWindow(QMainWindow):
             self.stack.setCurrentWidget(
                 self.collaborator_dashboard
             )
+
+        # ==========================================================
+    # PROJECT MANAGER NAVIGATION
+    # ==========================================================
+
+    def _handle_project_manager_navigation(self, key):
+
+        if self.project_manager_dashboard is None:
+            return
+
+        if key == "dashboard":
+
+            self.stack.setCurrentWidget(
+                self.project_manager_dashboard
+            )
+
+        elif key == "projects":
+
+            if self.my_projects_screen is not None:
+                self.stack.setCurrentWidget(
+                    self.my_projects_screen
+                )
+
+        elif key == "notifications":
+
+            if self.notifications_screen is None:
+
+                self.notifications_screen = (
+                    NotificationsScreen()
+                )
+
+                self.stack.addWidget(
+                    self.notifications_screen
+                )
+
+            self.notifications_screen.load_notifications()
+
+            self.stack.setCurrentWidget(
+                self.notifications_screen
+            )
+
+        elif key == "sections":
+
+            print(
+                "Project Manager Sections navigation"
+            )
+
+        elif key == "documents":
+
+            print(
+                "Project Manager Documents navigation"
+            )
+
+    # ==========================================================
+    # PROJECT MANAGER LOGOUT
+    # ==========================================================
+
+    def _handle_project_manager_logout(self):
+
+        self.current_user = None
+
+        if self.project_manager_dashboard is not None:
+
+            self.stack.removeWidget(
+                self.project_manager_dashboard
+            )
+
+            self.project_manager_dashboard.deleteLater()
+
+            self.project_manager_dashboard = None
+
+        if self.my_projects_screen is not None:
+
+            self.stack.removeWidget(
+                self.my_projects_screen
+            )
+
+            self.my_projects_screen.deleteLater()
+
+            self.my_projects_screen = None
+
+        self.stack.setCurrentWidget(
+            self.login_screen
+        )
+
+    # ==========================================================
+    # PROJECT MANAGER SETTINGS
+    # ==========================================================
+
+    def _handle_project_manager_settings(self):
+
+        print(
+            "Project Manager Settings"
+        )
 
     # ==========================================================
     # NAVIGATION
