@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 
 # Import the authentication service responsible for user verification.
-from app.services.auth_service import auth_service
+from services.auth_service import auth_service
 
 
 # Window responsible for user authentication before accessing the application.

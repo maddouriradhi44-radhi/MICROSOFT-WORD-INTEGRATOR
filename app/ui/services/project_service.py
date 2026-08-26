@@ -1,6 +1,6 @@
 import requests
-from app.ui.api.api_client import api_client
-from app.ui.services.auth_exceptions import (
+from api.api_client import api_client
+from services.auth_exceptions import (
     ServerUnavailableError,
     NetworkError,
 )

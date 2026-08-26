@@ -1,8 +1,8 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 from PySide6.QtCore import Qt, QThread, Signal
 
-from app.ui.services.auth_service import auth_service
-from app.ui.services.auth_exceptions import (
+from services.auth_service import auth_service
+from services.auth_exceptions import (
     EmptyFieldError,
     InvalidEmailFormatError,
     InvalidCredentialsError,
@@ -11,7 +11,7 @@ from app.ui.services.auth_exceptions import (
     NetworkError,
 )
 
-from app.ui.components.auth_widgets import (
+from components.auth_widgets import (
     AuthCard,
     wordmark,
     app_name,

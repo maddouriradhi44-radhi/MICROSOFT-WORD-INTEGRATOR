@@ -8,10 +8,10 @@ import re
 import requests
 import keyring
 
-from app.ui.api.api_client import api_client
-from app.ui.utils.config import KEYRING_SERVICE_NAME
+from api.api_client import api_client
+from utils.config import KEYRING_SERVICE_NAME
 
-from app.ui.services.auth_exceptions import (
+from services.auth_exceptions import (
     EmptyFieldError,
     InvalidEmailFormatError,
     InvalidCredentialsError,

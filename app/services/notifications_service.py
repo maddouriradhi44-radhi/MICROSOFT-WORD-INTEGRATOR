@@ -12,7 +12,7 @@ from app.enums.notification_level import NotificationLevel
 from app.enums.notification_type import NotificationType
 from app.models.notification import Notification
 from app.repositories.notification_repository import NotificationRepository
-
+from math import ceil
 
 class NotificationService:
     """
@@ -196,3 +196,35 @@ class NotificationService:
         )
 
         return True
+
+    def get_user_notifications_paginated(
+        self,
+        db: Session,
+        user_id: int,
+        page: int,
+        page_size: int,
+    ) -> dict:
+        """
+        Retrieve paginated notifications of a user.
+        """
+
+        notifications, total = (
+            self.repository.get_by_user_paginated(
+                db,
+                user_id,
+                page,
+                page_size,
+            )
+        )
+
+        total_pages = ceil(total / page_size) if total > 0 else 0
+
+        return {
+            "items": notifications,
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "total_pages": total_pages,
+            "has_next": page < total_pages,
+            "has_previous": page > 1,
+        }

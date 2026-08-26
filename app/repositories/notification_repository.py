@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 
 from app.models.notification import Notification
 
+from math import ceil
+
 
 class NotificationRepository:
     """
@@ -161,3 +163,37 @@ class NotificationRepository:
             )
             .count()
         )
+
+    def get_by_user_paginated(
+        self,
+        db: Session,
+        user_id: int,
+        page: int,
+        page_size: int,
+    ) -> tuple[list[Notification], int]:
+        """
+        Retrieve notifications of a user with pagination.
+
+        Returns:
+            - notifications for the requested page
+            - total number of notifications
+        """
+
+        query = (
+            db.query(Notification)
+            .filter(Notification.user_id == user_id)
+            .order_by(Notification.created_at.desc())
+        )
+
+        total = query.count()
+
+        offset = (page - 1) * page_size
+
+        notifications = (
+            query
+            .offset(offset)
+            .limit(page_size)
+            .all()
+        )
+
+        return notifications, total

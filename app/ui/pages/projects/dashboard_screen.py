@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 # --------------------------------------------------------------------------- #
 # Data contracts (kept local so the screen can be dropped in before the real
 # DTOs / service call exist; swap for the real imports when available, e.g.:
-#   from app.ui.services.project_service import ProjectService
+#   from services.project_service import ProjectService
 #   from app.schemas.project_schema import DashboardSummarySchema
 # --------------------------------------------------------------------------- #
 @dataclass
@@ -606,7 +606,7 @@ class DashboardScreen(QWidget):
 
 
 # --------------------------------------------------------------------------- #
-# Manual smoke test: `python -m app.ui.pages.projects.dashboard_screen`
+# Manual smoke test: `python -m pages.projects.dashboard_screen`
 # --------------------------------------------------------------------------- #
 if __name__ == "__main__":
     import sys

@@ -9,8 +9,8 @@ from PySide6.QtWidgets import (
     QScrollArea,
 )
 
-from app.ui.models.notification import Notification
-from app.ui.services.notification_service import notification_service
+from models.notification import Notification
+from services.notification_service import notification_service
 class NotificationRow(QFrame):
     """
     Represents one notification in the notifications list.
@@ -152,6 +152,13 @@ class NotificationsScreen(QWidget):
         super().__init__(parent)
 
         self.notifications = []
+
+        # Pagination
+        self.current_page = 1
+        self.page_size = 5
+        self.total_pages = 1
+        self.has_next = False
+        self.has_previous = False
         self.setStyleSheet(
             """
             QWidget {
@@ -263,15 +270,109 @@ class NotificationsScreen(QWidget):
         self.scroll.setWidget(self.container)
 
         main_layout.addWidget(self.scroll)
+        # ==========================================================
+        # PAGINATION
+        # ==========================================================
+
+        pagination_layout = QHBoxLayout()
+
+        self.previous_button = QPushButton("← Previous")
+        self.previous_button.setCursor(Qt.PointingHandCursor)
+
+        self.previous_button.setStyleSheet(
+            """
+            QPushButton {
+                color: #3E63DD;
+                background-color: white;
+                border: 1px solid #D8DCE5;
+                border-radius: 7px;
+                padding: 7px 12px;
+                font-size: 12px;
+                font-weight: 600;
+            }
+
+            QPushButton:disabled {
+                color: #A0A6B1;
+                background-color: #F2F3F5;
+            }
+
+            QPushButton:hover:enabled {
+                background-color: #F5F6F9;
+            }
+            """
+        )
+
+        self.previous_button.clicked.connect(
+            self._previous_page
+        )
+
+        self.page_label = QLabel("Page 1 / 1")
+        self.page_label.setAlignment(Qt.AlignCenter)
+
+        self.page_label.setStyleSheet(
+            """
+            QLabel {
+                color: #4B5563;
+                font-size: 12px;
+                font-weight: 600;
+            }
+            """
+        )
+
+        self.next_button = QPushButton("Next →")
+        self.next_button.setCursor(Qt.PointingHandCursor)
+
+        self.next_button.setStyleSheet(
+            """
+            QPushButton {
+                color: #3E63DD;
+                background-color: white;
+                border: 1px solid #D8DCE5;
+                border-radius: 7px;
+                padding: 7px 12px;
+                font-size: 12px;
+                font-weight: 600;
+            }
+
+            QPushButton:disabled {
+                color: #A0A6B1;
+                background-color: #F2F3F5;
+            }
+
+            QPushButton:hover:enabled {
+                background-color: #F5F6F9;
+            }
+            """
+        )
+
+        self.next_button.clicked.connect(
+            self._next_page
+        )
+
+        pagination_layout.addStretch()
+        pagination_layout.addWidget(self.previous_button)
+        pagination_layout.addWidget(self.page_label)
+        pagination_layout.addWidget(self.next_button)
+        pagination_layout.addStretch()
+
+        main_layout.addLayout(pagination_layout)
 
     def load_notifications(self):
         try:
-            data = notification_service.get_notifications()
-            print("Unread count:", notification_service.get_unread_count())
+            data = notification_service.get_notifications(
+                page=self.current_page,
+                page_size=self.page_size,
+            )
+
             self.notifications = [
                 Notification.from_dict(item)
-                for item in data
+                for item in data["items"]
             ]
+
+            # Pagination metadata
+            self.total_pages = data["total_pages"]
+            self.has_next = data["has_next"]
+            self.has_previous = data["has_previous"]
 
             self._display_notifications()
 
@@ -280,6 +381,8 @@ class NotificationsScreen(QWidget):
 
     def _display_notifications(self):
         self._clear_notifications()
+
+        self._update_pagination()
 
         if not self.notifications:
             empty_label = QLabel(
@@ -315,6 +418,30 @@ class NotificationsScreen(QWidget):
             self.notifications_layout.addWidget(row)
 
         self.notifications_layout.addStretch()
+
+    def _update_pagination(self):
+        self.page_label.setText(
+            f"Page {self.current_page} / {self.total_pages}"
+        )
+
+        self.previous_button.setEnabled(
+            self.has_previous
+        )
+
+        self.next_button.setEnabled(
+            self.has_next
+        )
+
+    def _previous_page(self):
+        if self.has_previous:
+            self.current_page -= 1
+            self.load_notifications()
+
+
+    def _next_page(self):
+        if self.has_next:
+            self.current_page += 1
+            self.load_notifications()
 
     def _mark_as_read(self, notification_id: int):
         try:

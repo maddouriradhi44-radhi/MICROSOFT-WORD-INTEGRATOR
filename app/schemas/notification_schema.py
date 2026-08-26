@@ -31,3 +31,16 @@ class NotificationResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class NotificationPaginatedResponse(BaseModel):
+    """
+    Paginated notifications response.
+    """
+
+    items: list[NotificationResponse]
+    page: int
+    page_size: int
+    total: int
+    total_pages: int
+    has_next: bool
+    has_previous: bool

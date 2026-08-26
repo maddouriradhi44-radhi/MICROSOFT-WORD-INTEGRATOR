@@ -5,13 +5,16 @@ This module provides endpoints for managing
 notifications of the authenticated user.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
 from app.dependencies.auth_dependency import get_current_user
 from app.models.user import User
-from app.schemas.notification_schema import NotificationResponse
+from app.schemas.notification_schema import (
+    NotificationResponse,
+    NotificationPaginatedResponse,
+)
 from app.services.notifications_service import NotificationService
 
 
@@ -22,24 +25,35 @@ router = APIRouter(
 
 notification_service = NotificationService()
 
-
 @router.get(
     "",
-    response_model=list[NotificationResponse],
+    response_model=NotificationPaginatedResponse,
 )
 def get_my_notifications(
+    page: int = Query(
+        default=1,
+        ge=1,
+        description="Page number",
+    ),
+    page_size: int = Query(
+        default=20,
+        ge=1,
+        le=100,
+        description="Number of notifications per page",
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Retrieve all notifications of the current user.
+    Retrieve paginated notifications of the current user.
     """
 
-    return notification_service.get_user_notifications(
+    return notification_service.get_user_notifications_paginated(
         db,
         current_user.id,
+        page,
+        page_size,
     )
-
 
 @router.get(
     "/unread",

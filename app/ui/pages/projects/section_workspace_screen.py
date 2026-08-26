@@ -18,8 +18,8 @@ from PySide6.QtWidgets import (
     QFileDialog,
 )
 
-from app.ui.services.section_service import section_service
-from app.ui.services.version_service import version_service
+from services.section_service import section_service
+from services.version_service import version_service
 
 
 class RestoreVersionDialog(QDialog):

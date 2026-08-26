@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QPushButton,
 )
 
-from app.ui.services.notification_service import notification_service
+from services.notification_service import notification_service
 
 
 class DashboardHeader(QFrame):

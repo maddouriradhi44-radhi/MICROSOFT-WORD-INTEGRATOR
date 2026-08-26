@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from app.ui.models.project import Project
+from models.project import Project
 
 
 class ProjectCard(QFrame):

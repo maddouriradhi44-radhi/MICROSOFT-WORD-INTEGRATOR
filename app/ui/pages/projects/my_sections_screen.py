@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
 )
 
-from app.ui.services.section_service import section_service
+from services.section_service import section_service
 
 
 class SectionCard(QFrame):
@@ -775,6 +775,9 @@ class MySectionsScreen(QWidget):
             self.container
         )
 
+        self.container.setVisible(True)
+        self.scroll.setVisible(True)
+
         main_layout.addWidget(
             self.scroll,
             1,
@@ -790,9 +793,60 @@ class MySectionsScreen(QWidget):
 
         try:
 
-            self.sections = (
+            all_sections = (
                 section_service.get_my_sections()
             )
+
+            current_project_id = (
+                self.project.id
+                if self.project is not None
+                else None
+            )
+
+            self.sections = [
+                section
+                for section in all_sections
+                if (
+                    current_project_id is not None
+                    and section.project_id == current_project_id
+                )
+            ]
+
+            print("\n========== MY SECTIONS DEBUG ==========")
+            print(
+                "CURRENT PROJECT:",
+                self.project,
+            )
+            print(
+                "CURRENT PROJECT ID:",
+                current_project_id,
+            )
+            print(
+                "ALL ASSIGNED SECTIONS:",
+                len(all_sections),
+            )
+
+            for section in all_sections:
+                print(
+                    f"SECTION: {section.id} | "
+                    f"TITLE: {section.title} | "
+                    f"PROJECT: {section.project_id} | "
+                    f"ASSIGNED: {section.assigned_user_id}"
+                )
+
+            print(
+                "FILTERED SECTIONS:",
+                len(self.sections),
+            )
+
+            for section in self.sections:
+                print(
+                    f"VISIBLE: {section.id} | "
+                    f"{section.title} | "
+                    f"PROJECT: {section.project_id}"
+                )
+
+            print("========================================\n")
 
             self.filtered_sections = list(
                 self.sections
@@ -803,9 +857,7 @@ class MySectionsScreen(QWidget):
             self._display_sections()
 
         except Exception:
-
             self._show_error()
-
     # ==========================================================
     # FILTERS
     # ==========================================================
@@ -891,9 +943,17 @@ class MySectionsScreen(QWidget):
 
     def _display_sections(self):
 
+        print("\n========== DISPLAY SECTIONS ==========")
+        print(
+            "NUMBER OF SECTIONS TO DISPLAY:",
+            len(self.filtered_sections),
+        )
+
         self._clear_sections()
 
         if not self.filtered_sections:
+
+            print("NOTHING TO DISPLAY")
 
             if self.sections:
                 self._show_no_results()
@@ -903,6 +963,12 @@ class MySectionsScreen(QWidget):
             return
 
         for section in self.filtered_sections:
+
+            print(
+                f"CREATING CARD -> "
+                f"ID: {section.id} | "
+                f"TITLE: {section.title}"
+            )
 
             card = SectionCard(
                 section

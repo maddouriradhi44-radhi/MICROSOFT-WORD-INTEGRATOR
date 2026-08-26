@@ -1,14 +1,20 @@
 import requests
-from app.ui.api.api_client import api_client
-from app.ui.services.auth_exceptions import (
+from api.api_client import api_client
+from services.auth_exceptions import (
     ServerUnavailableError,
     NetworkError,
 )
 class NotificationService:
 
-    def get_notifications(self):
+    def get_notifications(self, page: int = 1, page_size: int = 5):
         try:
-            response = api_client.get("/notifications")
+            response = api_client.get(
+                "/notifications",
+                params={
+                    "page": page,
+                    "page_size": page_size,
+                },
+            )
 
         except requests.exceptions.ConnectionError:
             raise NetworkError(
@@ -48,13 +54,18 @@ class NotificationService:
                 "The server returned an invalid response."
             )
 
-        if not isinstance(data, list):
+        if not isinstance(data, dict):
             raise ServerUnavailableError(
-                "The server returned an invalid "
-                "notifications list."
+                "The server returned an invalid notifications response."
+            )
+
+        if "items" not in data:
+            raise ServerUnavailableError(
+                "The server response does not contain notifications."
             )
 
         return data
+  
     def get_unread_count(self):
         try:
             response = api_client.get("/notifications/unread/count")

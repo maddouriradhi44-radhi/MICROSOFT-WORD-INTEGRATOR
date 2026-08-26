@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QThread
 from PySide6.QtWidgets import (
     QWidget,
     QLabel,
@@ -8,9 +8,9 @@ from PySide6.QtWidgets import (
     QFrame,
     QScrollArea,
 )
-from app.ui.pages.projects.dashboard_screen import DashboardScreen
-from app.ui.models.project import Project
-from app.ui.services.project_service import project_service
+from pages.projects.dashboard_screen import DashboardScreen
+from models.project import Project
+from services.project_service import project_service
 
 
 class ProjectCard(QFrame):
@@ -118,6 +118,20 @@ class ProjectCard(QFrame):
 
         self.setLayout(layout)
 
+class ProjectsWorker(QThread):
+
+    success = Signal(object)
+    failure = Signal(object)
+
+    def run(self):
+        try:
+            data = project_service.get_projects()
+        except Exception as error:
+            self.failure.emit(error)
+        else:
+            self.success.emit(data)
+
+
 
 class MyProjectsScreen(QWidget):
 
@@ -128,6 +142,8 @@ class MyProjectsScreen(QWidget):
 
         self.user = user
 
+        self.worker = None
+
         self.setStyleSheet(
             """
             QWidget {
@@ -135,6 +151,7 @@ class MyProjectsScreen(QWidget):
             }
             """
         )
+
 
         self._build_ui()
         self.load_projects()
@@ -273,6 +290,10 @@ class MyProjectsScreen(QWidget):
                 widget.deleteLater()
 
     def load_projects(self):
+
+        if self.worker is not None and self.worker.isRunning():
+            return
+
         self.clear_projects()
 
         self.retry_button.setVisible(False)
@@ -281,9 +302,25 @@ class MyProjectsScreen(QWidget):
             "Loading projects..."
         )
 
-        try:
-            data = project_service.get_projects()
+        self.worker = ProjectsWorker()
 
+        self.worker.success.connect(
+            self._handle_projects_success
+        )
+
+        self.worker.failure.connect(
+            self._handle_projects_failure
+        )
+
+        self.worker.finished.connect(
+            self._cleanup_worker
+        )
+
+        self.worker.start()
+
+    def _handle_projects_success(self, data):
+
+        try:
             projects = [
                 Project.from_dict(project_data)
                 for project_data in data
@@ -306,12 +343,31 @@ class MyProjectsScreen(QWidget):
         self.status_label.clear()
 
         for project in projects:
+
             card = ProjectCard(project)
 
             card.open_project.connect(
                 self.open_project.emit
             )
 
-            self.projects_layout.addWidget(card)
+            self.projects_layout.addWidget(
+                card
+            )
 
         self.projects_layout.addStretch()
+
+    def _handle_projects_failure(self, error):
+
+        self.status_label.setText(
+            "Unable to load your projects."
+        )
+
+        self.retry_button.setVisible(True)
+
+    def _cleanup_worker(self):
+
+        if self.worker is not None:
+
+            self.worker.deleteLater()
+
+            self.worker = None

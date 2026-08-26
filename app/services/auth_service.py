@@ -5,6 +5,7 @@ This module contains the business logic
 related to user authentication.
 """
 
+import time
 from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
@@ -75,14 +76,14 @@ class AuthService:
         hashed_password = hash_password(user_data.password)
         verification_token = generate_email_token()
         new_user = User(
-        first_name=user_data.first_name,
-        last_name=user_data.last_name,
-        email=user_data.email,
-        password_hash=hashed_password,
-        role=UserRole.COLLABORATOR,
-        is_verified=False,
-        verification_token=verification_token
-    )
+            first_name=user_data.first_name,
+            last_name=user_data.last_name,
+            email=user_data.email,
+            password_hash=hashed_password,
+            role=UserRole.COLLABORATOR,
+            is_verified=False,
+            verification_token=verification_token
+        )
 
         created_user = UserRepository.create(db, new_user)
 
@@ -108,6 +109,7 @@ class AuthService:
         )
 
         return UserResponse.model_validate(created_user)
+
     @staticmethod
     def login(
         db: Session,
@@ -115,19 +117,53 @@ class AuthService:
     ) -> Token:
         """
         Authenticate a user and return a JWT access token.
+        Temporary performance instrumentation.
         """
+
+        total_start = time.perf_counter()
+
+        # ---------------------------------------------------------
+        # 1. Recherche utilisateur
+        # ---------------------------------------------------------
+
+        start = time.perf_counter()
 
         user = UserRepository.get_by_email(
             db,
             credentials.email
         )
 
+        print(
+            f"[AUTH LOGIN] get_by_email: "
+            f"{time.perf_counter() - start:.3f}s"
+        )
+
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password."
+            )
+
+        # ---------------------------------------------------------
+        # 2. Vérification email
+        # ---------------------------------------------------------
+
+        start = time.perf_counter()
+
         if not user.is_verified:
+            print(
+                f"[AUTH LOGIN] is_verified check: "
+                f"{time.perf_counter() - start:.3f}s"
+            )
+
             notification_service.notify_user(
                 db=db,
                 user_id=user.id,
                 title="Unverified Login Attempt",
-                message="A login attempt was made while your email address is not verified.",
+                message=(
+                    "A login attempt was made while your email "
+                    "address is not verified."
+                ),
                 notification_type=NotificationType.SECURITY,
                 level=NotificationLevel.WARNING,
             )
@@ -137,17 +173,46 @@ class AuthService:
                 detail="Email not verified."
             )
 
-        if not verify_password(
+        print(
+            f"[AUTH LOGIN] is_verified check: "
+            f"{time.perf_counter() - start:.3f}s"
+        )
+
+        # ---------------------------------------------------------
+        # 3. Vérification bcrypt
+        # ---------------------------------------------------------
+
+        start = time.perf_counter()
+
+        password_valid = verify_password(
             credentials.password,
             user.password_hash
-        ):
+        )
+
+        print(
+            f"[AUTH LOGIN] verify_password: "
+            f"{time.perf_counter() - start:.3f}s"
+        )
+
+        if not password_valid:
+
+            start = time.perf_counter()
+
             notification_service.notify_user(
                 db=db,
                 user_id=user.id,
                 title="Failed Login Attempt",
-                message="A failed login attempt was detected on your account.",
+                message=(
+                    "A failed login attempt was detected "
+                    "on your account."
+                ),
                 notification_type=NotificationType.SECURITY,
                 level=NotificationLevel.WARNING,
+            )
+
+            print(
+                f"[AUTH LOGIN] failed notification: "
+                f"{time.perf_counter() - start:.3f}s"
             )
 
             raise HTTPException(
@@ -155,25 +220,46 @@ class AuthService:
                 detail="Invalid email or password."
             )
 
-        # Login génère et renvoie le token JWT
+        # ---------------------------------------------------------
+        # 4. Génération JWT
+        # ---------------------------------------------------------
+
+        start = time.perf_counter()
+
         token = create_access_token(
             {"sub": user.email}
         )
 
-        notification_service.notify_user(
-            db=db,
-            user_id=user.id,
-            title="Successful Login",
-            message="You have successfully logged in to your account.",
-            notification_type=NotificationType.SECURITY,
-            level=NotificationLevel.INFO,
+        print(
+            f"[AUTH LOGIN] create_access_token: "
+            f"{time.perf_counter() - start:.3f}s"
         )
+
+        # ---------------------------------------------------------
+        # 6. Audit login
+        # ---------------------------------------------------------
+
+        start = time.perf_counter()
 
         audit_log_service.log_action(
             db=db,
             user_id=user.id,
             action=AuditAction.LOGIN,
             target=f"user:{user.id}",
+        )
+
+        print(
+            f"[AUTH LOGIN] audit log: "
+            f"{time.perf_counter() - start:.3f}s"
+        )
+
+        # ---------------------------------------------------------
+        # 7. Total
+        # ---------------------------------------------------------
+
+        print(
+            f"[AUTH LOGIN] TOTAL: "
+            f"{time.perf_counter() - total_start:.3f}s"
         )
 
         return Token(
@@ -222,15 +308,15 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid verification token."
             )
-            
+
         if (
             user.verification_token_expires
             and user.verification_token_expires < datetime.utcnow()
-            ):
+        ):
             raise HTTPException(
-              status_code=status.HTTP_400_BAD_REQUEST,
-               detail="Verification token expired."
-           )
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verification token expired."
+            )
 
         user.is_verified = True
         user.verification_token = None
@@ -254,7 +340,6 @@ class AuthService:
             action=AuditAction.VERIFY_EMAIL,
             target=f"user:{user.id}",
         )
-
 
         return {
             "message": "Email verified successfully."
@@ -282,9 +367,9 @@ class AuthService:
 
         if not email.endswith("@capgemini.com"):
             raise HTTPException(
-              status_code=400,
-              detail="Only @capgemini.com emails are allowed"
-    )
+                status_code=400,
+                detail="Only @capgemini.com emails are allowed"
+            )
 
         reset_token = generate_token()
 
@@ -383,27 +468,3 @@ class AuthService:
         return {
             "message": "Logout successful."
         }
-
-
-    @staticmethod
-    def logout(
-        db: Session,
-        user: User,
-    ) -> dict:
-        """
-        Logout the current user.
-        """
-
-        audit_log_service.log_action(
-            db=db,
-            user_id=user.id,
-            action=AuditAction.LOGOUT,
-            target=f"user:{user.id}",
-        )
-
-        return {
-            "message": "Logout successful."
-        }
-            
-
-        

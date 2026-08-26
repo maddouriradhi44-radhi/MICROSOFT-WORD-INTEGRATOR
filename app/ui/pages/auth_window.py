@@ -1,28 +1,28 @@
 from PySide6.QtWidgets import QMainWindow, QStackedWidget
 
-from app.ui.pages.projects.my_projects_screen import MyProjectsScreen
-from app.ui.components.auth_widgets import BG_WINDOW
+from pages.projects.my_projects_screen import MyProjectsScreen
+from components.auth_widgets import BG_WINDOW
 
-from app.ui.pages.login_screen import LoginScreen
-from app.ui.pages.signup_screen import SignUpScreen
-from app.ui.pages.email_verification_screen import EmailVerificationScreen
-from app.ui.pages.forget_password_screen import ForgotPasswordScreen
-from app.ui.pages.reset_password_screen import ResetPasswordScreen
+from pages.login_screen import LoginScreen
+from pages.signup_screen import SignUpScreen
+from pages.email_verification_screen import EmailVerificationScreen
+from pages.forget_password_screen import ForgotPasswordScreen
+from pages.reset_password_screen import ResetPasswordScreen
 
-from app.ui.pages.projects.dashboard_screen import DashboardScreen
-from app.ui.pages.projects.collaborator_dashboard_screen import (
+from pages.projects.dashboard_screen import DashboardScreen
+from pages.projects.collaborator_dashboard_screen import (
     CollaboratorDashboardScreen
 )
-from app.ui.pages.projects.notifications_screen import (
+from pages.projects.notifications_screen import (
     NotificationsScreen
 )
-from app.ui.pages.projects.my_sections_screen import (
+from pages.projects.my_sections_screen import (
     MySectionsScreen
 )
-from app.ui.pages.projects.section_workspace_screen import (
+from pages.projects.section_workspace_screen import (
     SectionWorkspaceScreen
 )
-
+from pages.projects.document_screen import DocumentScreen
 
 class AuthWindow(QMainWindow):
 
@@ -34,6 +34,7 @@ class AuthWindow(QMainWindow):
         self.my_projects_screen = None
         self.dashboard_screen = None
         self.collaborator_dashboard = None
+        self.document_screen = None
         self.notifications_screen = None
         self.current_user = None
 
@@ -169,7 +170,6 @@ class AuthWindow(QMainWindow):
             self.stack.setCurrentWidget(
                 self.notifications_screen
             )
-
         # ------------------------------------------------------
         # My Sections
         # ------------------------------------------------------
@@ -197,12 +197,98 @@ class AuthWindow(QMainWindow):
 
             else:
 
+                self.my_sections_screen.project = (
+                    self.collaborator_dashboard.project
+                )
+
+                self.my_sections_screen.user = (
+                    self.current_user
+                )
+
                 self.my_sections_screen.load_sections()
+
+            # --------------------------------------------------
+            # IMPORTANT:
+            # Make My Sections the current screen
+            # --------------------------------------------------
 
             self.stack.setCurrentWidget(
                 self.my_sections_screen
             )
+       
+                # ------------------------------------------------------
+        # Document
+        # ------------------------------------------------------
 
+        elif key == "document":
+
+            if self.document_screen is None:
+
+                self.document_screen = DocumentScreen(
+                    project=self.collaborator_dashboard.project,
+                    user=self.current_user,
+                )
+
+                self.document_screen.back_requested.connect(
+                    self._return_to_collaborator_dashboard
+                )
+
+                self.stack.addWidget(
+                    self.document_screen
+                )
+
+            else:
+
+                self.document_screen.load_document()
+
+            self.stack.setCurrentWidget(
+                self.document_screen
+            )
+            print("\n========== STACK DEBUG ==========")
+
+            print(
+                "CURRENT WIDGET:",
+                self.stack.currentWidget()
+            )
+
+            print(
+                "MY SECTIONS VISIBLE:",
+                self.my_sections_screen.isVisible()
+            )
+
+            print(
+                "MY SECTIONS HIDDEN:",
+                self.my_sections_screen.isHidden()
+            )
+
+            print(
+                "MY SECTIONS SIZE:",
+                self.my_sections_screen.size()
+            )
+
+            print(
+                "STACK VISIBLE:",
+                self.stack.isVisible()
+            )
+
+            print(
+                "STACK SIZE:",
+                self.stack.size()
+            )
+
+            print(
+                "MY SECTIONS PARENT:",
+                self.my_sections_screen.parent()
+            )
+
+            print(
+                "MY SECTIONS PARENT VISIBLE:",
+                self.my_sections_screen.parent().isVisible()
+                if self.my_sections_screen.parent()
+                else None
+            )
+
+            print("=================================\n")
         # ------------------------------------------------------
         # Dashboard
         # ------------------------------------------------------

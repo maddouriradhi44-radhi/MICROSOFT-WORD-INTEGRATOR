@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import Qt, QTimer
 
-from app.ui.components.auth_widgets import (
+from components.auth_widgets import (
     AuthCard,
     wordmark,
     app_name,
