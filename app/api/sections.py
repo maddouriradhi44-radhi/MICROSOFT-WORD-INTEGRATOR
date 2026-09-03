@@ -81,6 +81,24 @@ def get_my_sections(
         current_user.id,
     )
 
+@router.get(
+    "/project/{project_id}",
+    response_model=list[SectionResponse],
+)
+def get_project_sections(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get all sections belonging to a project.
+    """
+
+    return section_service.get_project_sections(
+        db,
+        project_id,
+    )
+
 # ==========================================================
 # Export section
 # ==========================================================

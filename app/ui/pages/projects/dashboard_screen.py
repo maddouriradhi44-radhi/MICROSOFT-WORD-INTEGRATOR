@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Optional
@@ -286,83 +285,355 @@ class CardContainer(QFrame):
 # Sidebar
 # --------------------------------------------------------------------------- #
 class Sidebar(QFrame):
-    nav_clicked = Signal(str)  # "dashboard" | "sections" | "document" | "notifications"
+    nav_clicked = Signal(str)
     logout_clicked = Signal()
     settings_clicked = Signal()
 
-    NAV_ITEMS = [
-        ("dashboard", "Dashboard"),
-        ("sections", "My Sections"),
-        ("document", "Document"),
-        ("notifications", "Notifications"),
+    NAV_GROUPS = [
+        (
+            "WORKSPACE",
+            [
+                ("overview", "▦", "Overview"),
+                ("sections", "▣", "Sections"),
+                ("documents", "▧", "Documents"),
+                ("members", "♧", "Members"),
+                ("assignments", "☷", "Assignments"),
+            ],
+        ),
+        (
+            "WORKFLOW",
+            [
+                ("validation", "✓", "Validation"),
+                ("comments", "▢", "Comments"),
+                ("versions", "◌", "Versions"),
+            ],
+        ),
+        (
+            "ACTIVITY",
+            [
+                ("activity", "♧", "Activity"),
+                ("notifications", "♧", "Notifications"),
+            ],
+        ),
+        (
+            "INTELLIGENCE",
+            [
+                ("ai_insights", "✧", "AI Insights"),
+            ],
+        ),
     ]
 
-    def __init__(self, workspace_name: str = "CAPGEMINI", parent: Optional[QWidget] = None):
+    def __init__(
+        self,
+        workspace_name: str = "Microsoft Word Integrator",
+        parent: Optional[QWidget] = None,
+    ):
         super().__init__(parent)
-        self.setFixedWidth(220)
-        self.setStyleSheet("background-color: #0B1B3B;")
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 20, 16, 20)
-        layout.setSpacing(6)
+        self.expanded_width = 240
+        self.collapsed_width = 64
+        self.is_collapsed = False
 
-        brand_row = QHBoxLayout()
-        logo = QLabel()
-        logo.setFixedSize(28, 28)
-        logo.setStyleSheet("background-color: #3E63DD; border-radius: 6px;")
-        brand_label = QLabel(workspace_name)
-        brand_label.setStyleSheet("color: white; font-size: 14px; font-weight: 700;")
-        brand_row.addWidget(logo)
-        brand_row.addWidget(brand_label)
-        brand_row.addStretch()
-        layout.addLayout(brand_row)
-        layout.addSpacing(24)
-
-        self._nav_buttons: dict[str, QPushButton] = {}
-        for key, label in self.NAV_ITEMS:
-            btn = self._make_nav_button(label)
-            btn.clicked.connect(lambda _, k=key: self.nav_clicked.emit(k))
-            self._nav_buttons[key] = btn
-            layout.addWidget(btn)
-
-        layout.addStretch()
-
-        settings_btn = self._make_nav_button("Settings", active_bg=False)
-        settings_btn.clicked.connect(self.settings_clicked.emit)
-        layout.addWidget(settings_btn)
-
-        logout_btn = self._make_nav_button("Logout", active_bg=False, danger=True)
-        logout_btn.clicked.connect(self.logout_clicked.emit)
-        layout.addWidget(logout_btn)
-
-        self.set_active("dashboard")
-
-    def _make_nav_button(self, label: str, active_bg: bool = True, danger: bool = False) -> QPushButton:
-        btn = QPushButton(label)
-        btn.setCursor(Qt.PointingHandCursor)
-        btn.setCheckable(True)
-        color = "#FF6B6B" if danger else "#C6CCDA"
-        btn.setStyleSheet(
-            f"""
-            QPushButton {{
-                text-align: left;
-                padding: 10px 12px;
-                border-radius: 8px;
-                color: {color};
-                font-size: 13px;
-                font-weight: 500;
-                background-color: transparent;
-                border: none;
-            }}
-            QPushButton:hover {{ background-color: #142A57; color: white; }}
-            QPushButton:checked {{ background-color: #1E4FD6; color: white; font-weight: 600; }}
+        self.setFixedWidth(self.expanded_width)
+        self.setStyleSheet(
+            """
+            QFrame {
+                background-color: #FFFFFF;
+                border-right: 1px solid #E5E7EB;
+            }
             """
         )
+
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(12, 18, 12, 18)
+        self.layout.setSpacing(4)
+
+        # --------------------------------------------------
+        # BRAND
+        # --------------------------------------------------
+
+        brand_row = QHBoxLayout()
+        brand_row.setContentsMargins(8, 0, 8, 0)
+        brand_row.setSpacing(10)
+
+        self.logo = QLabel("W")
+        self.logo.setFixedSize(34, 34)
+        self.logo.setAlignment(Qt.AlignCenter)
+        self.logo.setStyleSheet(
+            """
+            QLabel {
+                background-color: #185ABD;
+                color: white;
+                border-radius: 7px;
+                font-size: 18px;
+                font-weight: 800;
+                border: none;
+            }
+            """
+        )
+
+        self.brand_label = QLabel(workspace_name)
+        self.brand_label.setWordWrap(True)
+        self.brand_label.setStyleSheet(
+            """
+            QLabel {
+                color: #172033;
+                font-size: 13px;
+                font-weight: 700;
+                border: none;
+            }
+            """
+        )
+
+        brand_row.addWidget(self.logo)
+        brand_row.addWidget(self.brand_label, 1)
+
+        self.layout.addLayout(brand_row)
+        self.layout.addSpacing(24)
+
+        # --------------------------------------------------
+        # NAVIGATION
+        # --------------------------------------------------
+
+        self._nav_buttons = {}
+
+        for group_name, items in self.NAV_GROUPS:
+
+            group_label = QLabel(group_name)
+            group_label.setStyleSheet(
+                """
+                QLabel {
+                    color: #9AA3B2;
+                    font-size: 10px;
+                    font-weight: 700;
+                    padding: 8px 10px 5px 10px;
+                    border: none;
+                }
+                """
+            )
+
+            self.layout.addWidget(group_label)
+
+            for key, icon, label in items:
+
+                btn = self._make_nav_button(
+                    key,
+                    icon,
+                    label,
+                )
+
+                btn.clicked.connect(
+                    lambda checked=False, k=key:
+                    self.nav_clicked.emit(k)
+                )
+
+                self._nav_buttons[key] = btn
+                self.layout.addWidget(btn)
+
+            if group_name != "INTELLIGENCE":
+                separator = QFrame()
+                separator.setFrameShape(QFrame.HLine)
+                separator.setFixedHeight(1)
+                separator.setStyleSheet(
+                    "background-color: #EEF0F4; border: none;"
+                )
+
+                self.layout.addSpacing(8)
+                self.layout.addWidget(separator)
+                self.layout.addSpacing(4)
+
+        # --------------------------------------------------
+        # SPACE
+        # --------------------------------------------------
+
+        self.layout.addStretch()
+
+       # --------------------------------------------------
+        # SETTINGS
+        # --------------------------------------------------
+
+        self.settings_btn = self._make_nav_button(
+            "settings",
+            "⚙",
+            "Settings",
+        )
+
+        self.settings_btn.clicked.connect(
+            self.settings_clicked.emit
+        )
+
+        self.layout.addWidget(
+            self.settings_btn
+        )
+
+        # --------------------------------------------------
+        # LOGOUT
+        # --------------------------------------------------
+
+        self.logout_btn = self._make_nav_button(
+            "logout",
+            "⇥",
+            "Logout",
+        )
+
+        self.logout_btn.clicked.connect(
+            self.logout_clicked.emit
+        )
+
+        self.layout.addWidget(
+            self.logout_btn
+        )
+
+        # --------------------------------------------------
+        # COLLAPSE
+        # --------------------------------------------------
+    # ======================================================
+    # NAV BUTTON
+    # ======================================================
+
+    def _make_nav_button(
+        self,
+        key: str,
+        icon: str,
+        label: str,
+    ):
+
+        btn = QPushButton()
+
+        btn.setCheckable(True)
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setFixedHeight(38)
+
+        btn.setText(f"{icon}    {label}")
+
+        btn.setStyleSheet(
+            """
+            QPushButton {
+                text-align: left;
+                padding: 0 10px;
+                border: none;
+                border-radius: 7px;
+                background-color: transparent;
+                color: #596579;
+                font-size: 12px;
+                font-weight: 500;
+            }
+
+            QPushButton:hover {
+                background-color: #F3F6FA;
+                color: #185ABD;
+            }
+
+            QPushButton:checked {
+                background-color: #EAF2FF;
+                color: #185ABD;
+                font-weight: 600;
+            }
+            """
+        )
+
         return btn
 
+    # ======================================================
+    # ACTIVE
+    # ======================================================
+
     def set_active(self, key: str):
-        for k, btn in self._nav_buttons.items():
-            btn.setChecked(k == key)
+
+        for nav_key, button in self._nav_buttons.items():
+
+            button.setChecked(
+                nav_key == key
+            )
+
+    # ======================================================
+    # COLLAPSE
+    # ======================================================
+
+    def toggle_collapse(self):
+
+        self.is_collapsed = not self.is_collapsed
+
+        if self.is_collapsed:
+
+            self.setFixedWidth(
+                self.collapsed_width
+            )
+
+            for key, button in self._nav_buttons.items():
+
+                text = button.text()
+
+                if text:
+                    button.setText(
+                        text.split()[0]
+                    )
+
+                button.setToolTip(
+                    self._get_label(key)
+                )
+
+            self.settings_btn.setText("⚙")
+            self.settings_btn.setToolTip("Settings")
+
+            self.logout_btn.setText("⇥")
+            self.logout_btn.setToolTip("Logout")
+
+            self.collapse_btn.setText("→")
+            self.collapse_btn.setToolTip("Expand")
+
+            self.brand_label.hide()
+
+        else:
+
+            self.setFixedWidth(
+                self.expanded_width
+            )
+
+            for key, button in self._nav_buttons.items():
+
+                button.setText(
+                    self._get_full_text(key)
+                )
+
+                button.setToolTip("")
+
+            self.settings_btn.setText(
+                "⚙    Settings"
+            )
+
+            self.logout_btn.setText(
+                "⇥    Logout"
+            )
+
+
+            self.collapse_btn.setText(
+                "←    Collapse"
+            )
+
+            self.brand_label.show()
+
+    def _get_label(self, key: str):
+
+        for _, items in self.NAV_GROUPS:
+
+            for item_key, icon, label in items:
+
+                if item_key == key:
+                    return label
+
+        return ""
+
+    def _get_full_text(self, key: str):
+
+        for _, items in self.NAV_GROUPS:
+
+            for item_key, icon, label in items:
+
+                if item_key == key:
+                    return f"{icon}    {label}"
+
+        return ""
 
 
 # --------------------------------------------------------------------------- #

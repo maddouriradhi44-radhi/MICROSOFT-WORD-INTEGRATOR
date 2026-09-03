@@ -83,18 +83,18 @@ class ProjectMemberRepository:
     def get_project_members(
         db: Session,
         project_id: int,
-    ) -> list[ProjectMember]:
+    ):
         """
-        Retrieve all members of a project.
+        Retrieve all members of a project with user information.
         """
         return (
             db.query(ProjectMember)
+            .join(ProjectMember.user)
             .filter(
                 ProjectMember.project_id == project_id
             )
             .all()
         )
-
     
 
     @staticmethod

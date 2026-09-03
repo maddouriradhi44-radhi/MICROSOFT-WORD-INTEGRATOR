@@ -218,5 +218,168 @@ class SectionService:
                 "The server returned an invalid response."
             )
 
+    def get_ai_proposals(self, document_id: int):
+        try:
+            response = api_client.get(
+                f"/ai/documents/{document_id}/proposals"
+            )
+
+        except requests.exceptions.ConnectionError:
+            raise NetworkError(
+                "Unable to connect to the server."
+            )
+
+        except requests.exceptions.Timeout:
+            raise NetworkError(
+                "The server took too long to respond."
+            )
+
+        except requests.exceptions.RequestException:
+            raise NetworkError(
+                "A network error occurred."
+            )
+
+        if response.status_code == 401:
+            raise NetworkError(
+                "Your authentication session has expired."
+            )
+
+        if response.status_code >= 500:
+            raise ServerUnavailableError(
+                "Unable to load AI proposals."
+            )
+
+        if response.status_code != 200:
+            raise ServerUnavailableError(
+                f"Unable to load AI proposals ({response.status_code})."
+            )
+
+        try:
+            data = response.json()
+
+        except ValueError:
+            raise ServerUnavailableError(
+                "The server returned an invalid AI proposals response."
+            )
+
+        if not isinstance(data, list):
+            raise ServerUnavailableError(
+                "The server returned an invalid AI proposals list."
+            )
+
+        return data
+
+
+    def accept_ai_proposal(self, proposal_id, assigned_user_id=None):
+        params = ""
+
+        if assigned_user_id is not None:
+            params = f"?assigned_user_id={assigned_user_id}"
+
+        try:
+            response = api_client.post(
+                f"/ai/proposals/{proposal_id}/accept{params}",
+                {},
+            )
+
+        except requests.exceptions.ConnectionError:
+            raise NetworkError(
+                "Unable to connect to the server."
+            )
+
+        except requests.exceptions.Timeout:
+            raise NetworkError(
+                "The server took too long to respond."
+            )
+
+        except requests.exceptions.RequestException:
+            raise NetworkError(
+                "A network error occurred."
+            )
+
+        if response.status_code == 401:
+            raise NetworkError(
+                "Your authentication session has expired."
+            )
+
+        if response.status_code == 403:
+            raise NetworkError(
+                "You are not allowed to accept this proposal."
+            )
+
+        if response.status_code >= 500:
+            raise ServerUnavailableError(
+                "Unable to accept AI proposal."
+            )
+
+        if response.status_code != 200:
+            raise ServerUnavailableError(
+                f"Unable to accept AI proposal "
+                f"({response.status_code})."
+            )
+
+        try:
+            return response.json()
+
+        except ValueError:
+            raise ServerUnavailableError(
+                "The server returned an invalid response."
+            )
+
+
+    def reject_ai_proposal(self, proposal_id, review_comment=None):
+
+        try:
+            response = api_client.post(
+                f"/ai/proposals/{proposal_id}/reject",
+                {
+                    "review_comment": review_comment,
+                },
+            )
+
+        except requests.exceptions.ConnectionError:
+            raise NetworkError(
+                "Unable to connect to the server."
+            )
+
+        except requests.exceptions.Timeout:
+            raise NetworkError(
+                "The server took too long to respond."
+            )
+
+        except requests.exceptions.RequestException:
+            raise NetworkError(
+                "A network error occurred."
+            )
+
+        if response.status_code == 401:
+            raise NetworkError(
+                "Your authentication session has expired."
+            )
+
+        if response.status_code == 403:
+            raise NetworkError(
+                "You are not allowed to reject this proposal."
+            )
+
+        if response.status_code >= 500:
+            raise ServerUnavailableError(
+                "Unable to reject AI proposal."
+            )
+
+        if response.status_code != 200:
+            raise ServerUnavailableError(
+                f"Unable to reject AI proposal "
+                f"({response.status_code})."
+            )
+
+        try:
+            return response.json()
+
+        except ValueError:
+            raise ServerUnavailableError(
+                "The server returned an invalid response."
+            )
+
 
 section_service = SectionService()

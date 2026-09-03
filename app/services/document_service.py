@@ -734,3 +734,5 @@ class DocumentService:
             action=AuditAction.UNLOCK,
             target=f"document:{document_id}",
         )
+
+    

@@ -39,16 +39,17 @@ from app.services.notifications_service import NotificationService
 from app.services.audit_log_service import AuditLogService
 from app.enums.audit_action import AuditAction
 
+
 class ProjectMemberService:
     """
     Service responsible for project member operations.
     """
 
-
     # ==========================================================
     # ADD MEMBER
     # ==========================================================
 
+    @staticmethod
     def add_member(
         db: Session,
         project_id: int,
@@ -59,7 +60,6 @@ class ProjectMemberService:
         """
         Add a user to a project.
         """
-
 
         # Check project existence
         project = ProjectRepository.get_by_id(
@@ -128,8 +128,6 @@ class ProjectMemberService:
 
         return member
 
-
-
     # ==========================================================
     # GET PROJECT MEMBERS
     # ==========================================================
@@ -138,29 +136,37 @@ class ProjectMemberService:
     def get_project_members(
         db: Session,
         project_id: int,
-    ) -> list[ProjectMember]:
+    ) -> list[dict]:
         """
-        Return all members of a project.
+        Return all members of a project
+        with their user information.
         """
-
 
         project = ProjectRepository.get_by_id(
             db,
             project_id
         )
 
-
         if project is None:
             raise ProjectNotFoundException(project_id)
 
-
-
-        return ProjectMemberRepository.get_project_members(
+        members = ProjectMemberRepository.get_project_members(
             db,
             project_id
         )
 
-
+        return [
+            {
+                "id": member.id,
+                "project_id": member.project_id,
+                "user_id": member.user_id,
+                "role": member.role,
+                "joined_at": member.joined_at,
+                "first_name": member.user.first_name,
+                "last_name": member.user.last_name,
+            }
+            for member in members
+        ]
 
     # ==========================================================
     # UPDATE MEMBER ROLE
@@ -228,9 +234,10 @@ class ProjectMemberService:
         )
 
         return member
-# ==========================================================
-# REMOVE MEMBER
-# ==========================================================
+
+    # ==========================================================
+    # REMOVE MEMBER
+    # ==========================================================
 
     @staticmethod
     def remove_member(
@@ -301,7 +308,7 @@ class ProjectMemberService:
             user_id=user_id,
             title="Removed from Project",
             message=(
-                f"You have been removed from the project"
+                f"You have been removed from the project "
                 f"« {project.name} »."
             ),
             notification_type=NotificationType.PROJECT,
@@ -309,4 +316,3 @@ class ProjectMemberService:
             entity_type="project",
             entity_id=project_id,
         )
-

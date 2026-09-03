@@ -672,3 +672,18 @@ class SectionService:
             )
 
         return updated_section
+
+
+    def get_project_sections(
+        self,
+        db: Session,
+        project_id: int,
+    ) -> list[Section]:
+        """
+        Retrieve all sections belonging to a project.
+        """
+
+        return self.repository.get_project_sections(
+            db,
+            project_id,
+        )

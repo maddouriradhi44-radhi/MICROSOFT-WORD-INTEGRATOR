@@ -5,12 +5,13 @@ This module defines the request and response schemas
 used by the Project Management API.
 """
 
-from pydantic import BaseModel, ConfigDict
-
-from app.enums.project_status import ProjectStatus
-from app.enums.project_role import ProjectRole
 from datetime import datetime
-from pydantic import Field, EmailStr
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+from app.enums.project_role import ProjectRole
+from app.enums.project_status import ProjectStatus
+
 
 class ProjectCreate(BaseModel):
     """
@@ -51,10 +52,12 @@ class ProjectResponse(BaseModel):
     description: str
     status: ProjectStatus
     owner_id: int
-    created_at:datetime
-    ai_enabled: bool 
+    created_at: datetime
+    ai_enabled: bool
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True
+    )
 
 
 class UserProjectResponse(BaseModel):
@@ -70,7 +73,7 @@ class UserProjectResponse(BaseModel):
     owner_id: int
     created_at: datetime
     role: ProjectRole
-    ai_enabled: bool 
+    ai_enabled: bool
 
     model_config = ConfigDict(
         from_attributes=True
@@ -91,7 +94,7 @@ class UpdateMemberRoleRequest(BaseModel):
     Schema used to update a member's role.
     """
 
-    role: ProjectRole   
+    role: ProjectRole
 
 
 class ProjectMemberResponse(BaseModel):
@@ -105,8 +108,9 @@ class ProjectMemberResponse(BaseModel):
     role: ProjectRole
     joined_at: datetime
 
+    first_name: str | None = None
+    last_name: str | None = None
+
     model_config = ConfigDict(
         from_attributes=True
     )
-
-    

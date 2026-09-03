@@ -172,3 +172,27 @@ class SectionRepository:
         db.refresh(section)
 
         return section
+
+
+    def get_project_sections(
+        self,
+        db: Session,
+        project_id: int,
+    ) -> list[Section]:
+        """
+        Retrieve all sections belonging to a project.
+        """
+
+        return (
+            db.query(Section)
+            .filter(
+                Section.project_id == project_id
+            )
+            .order_by(
+                Section.order
+            )
+            .all()
+        )
+
+    
+        

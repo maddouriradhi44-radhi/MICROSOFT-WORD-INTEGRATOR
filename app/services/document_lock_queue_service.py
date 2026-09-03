@@ -129,28 +129,15 @@ class DocumentLockQueueService:
 
         return queue_item
 
-    def release_lock(
+    def _notify_next_waiting_user(
         self,
         db: Session,
         document_id: int,
     ):
         """
-        Release the current lock and notify
-        the first waiting user.
+        Notify the first waiting user in FIFO order.
+        The document must already be free.
         """
-
-        # ======================================================
-        # REMOVE CURRENT LOCK
-        # ======================================================
-
-        self.document_service.release_document_lock(
-            db,
-            document_id,
-        )
-
-        # ======================================================
-        # GET FIRST WAITING USER (FIFO)
-        # ======================================================
 
         next_user = (
             self.queue_repository.get_next_waiting_user(
@@ -160,13 +147,7 @@ class DocumentLockQueueService:
         )
 
         if next_user is None:
-            return {
-                "message": "No user waiting."
-            }
-
-        # ======================================================
-        # MARK USER AS NOTIFIED
-        # ======================================================
+            return None
 
         next_user.notified_at = datetime.now(timezone.utc)
 
@@ -175,10 +156,6 @@ class DocumentLockQueueService:
             next_user,
             LockRequestStatus.NOTIFIED,
         )
-
-        # ======================================================
-        # SEND NOTIFICATION TO NEXT USER ONLY
-        # ======================================================
 
         self.notification_service.notify_user(
             db=db,
@@ -194,6 +171,33 @@ class DocumentLockQueueService:
             entity_type="document",
             entity_id=document_id,
         )
+
+        return next_user
+
+    def release_lock(
+        self,
+        db: Session,
+        document_id: int,
+    ):
+        """
+        Release the current lock and notify
+        the first waiting user.
+        """
+
+        self.document_service.release_document_lock(
+            db,
+            document_id,
+        )
+
+        next_user = self._notify_next_waiting_user(
+            db,
+            document_id,
+        )
+
+        if next_user is None:
+            return {
+                "message": "No user waiting."
+            }
 
         return {
             "message": "Next user has been notified.",
@@ -366,11 +370,52 @@ class DocumentLockQueueService:
         # NOTIFY NEXT USER IN FIFO
         # ======================================================
 
-        return self.release_lock(
+        return self._notify_next_waiting_user(
             db,
             document_id,
         )
 
+    def expire_document_locks(
+        self,
+        db: Session,
+    ):
+        """
+        Detect expired document locks, remove them,
+        and notify the first waiting user.
+        """
+
+        from app.models.document_lock import DocumentLock
+
+        now = datetime.utcnow()
+
+        expired_locks = (
+            db.query(DocumentLock)
+            .filter(
+                DocumentLock.expires_at <= now
+            )
+            .all()
+        )
+
+        expired_count = 0
+
+        for lock in expired_locks:
+            document_id = lock.document_id
+
+            self.lock_repository.delete(
+                db,
+                lock,
+            )
+
+            self._notify_next_waiting_user(
+                db,
+                document_id,
+            )
+
+            expired_count += 1
+
+        return {
+            "expired_locks": expired_count
+        }
 
     def expire_old_requests(
         self,
@@ -412,8 +457,10 @@ class DocumentLockQueueService:
                 "USER:",
                 request.user_id,
                 "NOTIFIED AT:",
-                request.notified_at
+                request.notified_at,
             )
+
+            document_id = request.document_id
 
             self.queue_repository.update_status(
                 db,
@@ -426,9 +473,9 @@ class DocumentLockQueueService:
                 request,
             )
 
-            self.release_lock(
+            self._notify_next_waiting_user(
                 db,
-                request.document_id,
+                document_id,
             )
 
 
